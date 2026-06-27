@@ -1,1 +1,1 @@
-# spring-core-gym-crm
+# spring-core-gym-crm implementation
