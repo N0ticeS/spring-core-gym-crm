@@ -1,123 +1,111 @@
 package com.example.core.utils;
 
+import com.example.core.repository.UserRepository;
 import com.example.core.service.util.UsernameGenerator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Set;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+@ExtendWith(MockitoExtension.class)
+class UsernameGeneratorTest {
 
-public class UsernameGeneratorTest {
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private UsernameGenerator usernameGenerator;
 
     @Test
-    void shouldGenerateBaseUsernameWhenUsernameDoesNotExist() {
-        var existingUsernames = Set.of("Mike.Brown");
+    void shouldGenerateUsernameWithoutSuffixWhenUsernameDoesNotExist() {
+        when(userRepository.existsByUsername("John.Smith")).thenReturn(false);
 
-        var result = UsernameGenerator.generate("John", "Smith", existingUsernames);
+        String username = usernameGenerator.generate("John", "Smith");
 
         assertEquals(
                 "John.Smith",
-                result,
-                "Generated username should match base username when it is unique"
+                username,
+                "Username should be generated without suffix"
         );
+
+        verify(userRepository).existsByUsername("John.Smith");
     }
 
     @Test
-    void shouldGenerateUsernameWithSuffixOneWhenBaseUsernameExists() {
-        var existingUsernames = Set.of("John.Smith");
+    void shouldGenerateUsernameWithSuffixWhenUsernameAlreadyExists() {
+        when(userRepository.existsByUsername("John.Smith")).thenReturn(true);
+        when(userRepository.existsByUsername("John.Smith1")).thenReturn(false);
 
-        var result = UsernameGenerator.generate("John", "Smith", existingUsernames);
+        String username = usernameGenerator.generate("John", "Smith");
 
         assertEquals(
                 "John.Smith1",
-                result,
-                "Generated username should contain suffix 1 when base username already exists"
+                username,
+                "Username should have suffix 1 when base username already exists"
         );
+
+        verify(userRepository).existsByUsername("John.Smith");
+        verify(userRepository).existsByUsername("John.Smith1");
     }
 
     @Test
-    void shouldGenerateUsernameWithNextAvailableSuffixWhenSeveralUsernamesExist() {
-        var existingUsernames = Set.of(
-                "John.Smith",
-                "John.Smith1",
-                "John.Smith2"
-        );
+    void shouldGenerateUsernameWithNextAvailableSuffix() {
+        when(userRepository.existsByUsername("John.Smith")).thenReturn(true);
+        when(userRepository.existsByUsername("John.Smith1")).thenReturn(true);
+        when(userRepository.existsByUsername("John.Smith2")).thenReturn(true);
+        when(userRepository.existsByUsername("John.Smith3")).thenReturn(false);
 
-        var result = UsernameGenerator.generate("John", "Smith", existingUsernames);
+        String username = usernameGenerator.generate("John", "Smith");
 
         assertEquals(
                 "John.Smith3",
-                result,
-                "Generated username should use the next available numeric suffix"
+                username,
+                "Username should have next available suffix"
         );
+
+        verify(userRepository).existsByUsername("John.Smith");
+        verify(userRepository).existsByUsername("John.Smith1");
+        verify(userRepository).existsByUsername("John.Smith2");
+        verify(userRepository).existsByUsername("John.Smith3");
     }
 
     @Test
-    void shouldThrowExceptionWhenFirstNameIsNull() {
-        var existingUsernames = Set.of("John.Smith");
+    void shouldGenerateDifferentUsernamesForDifferentNames() {
+        when(userRepository.existsByUsername("John.Smith")).thenReturn(false);
+        when(userRepository.existsByUsername("Mike.Brown")).thenReturn(false);
 
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> UsernameGenerator.generate(null, "Smith", existingUsernames),
-                "Generating username with null first name should throw IllegalArgumentException"
+        String firstUsername = usernameGenerator.generate("John", "Smith");
+        String secondUsername = usernameGenerator.generate("Mike", "Brown");
+
+        assertNotEquals(
+                firstUsername,
+                secondUsername,
+                "Generated usernames should be different"
         );
 
-        assertEquals(
-                "firstName is required",
-                exception.getMessage(),
-                "Exception message should describe missing first name"
-        );
+        assertEquals("John.Smith", firstUsername, "First username should match");
+        assertEquals("Mike.Brown", secondUsername, "Second username should match");
     }
 
     @Test
-    void shouldThrowExceptionWhenFirstNameIsBlank() {
-        var existingUsernames = Set.of("John.Smith");
+    void shouldGenerateNonBlankUsername() {
+        when(userRepository.existsByUsername("John.Smith")).thenReturn(false);
 
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> UsernameGenerator.generate(" ", "Smith", existingUsernames),
-                "Generating username with blank first name should throw IllegalArgumentException"
+        String username = usernameGenerator.generate("John", "Smith");
+
+        assertNotNull(
+                username,
+                "Generated username should not be null"
         );
 
-        assertEquals(
-                "firstName is required",
-                exception.getMessage(),
-                "Exception message should describe blank first name"
-        );
-    }
-
-    @Test
-    void shouldThrowExceptionWhenLastNameIsNull() {
-        var existingUsernames = Set.of("John.Smith");
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> UsernameGenerator.generate("John", null, existingUsernames),
-                "Generating username with null last name should throw IllegalArgumentException"
-        );
-
-        assertEquals(
-                "lastName is required",
-                exception.getMessage(),
-                "Exception message should describe missing last name"
-        );
-    }
-
-    @Test
-    void shouldThrowExceptionWhenLastNameIsBlank() {
-        var existingUsernames = Set.of("John.Smith");
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> UsernameGenerator.generate("John", " ", existingUsernames),
-                "Generating username with blank last name should throw IllegalArgumentException"
-        );
-
-        assertEquals(
-                "lastName is required",
-                exception.getMessage(),
-                "Exception message should describe blank last name"
+        assertFalse(
+                username.isBlank(),
+                "Generated username should not be blank"
         );
     }
 }

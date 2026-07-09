@@ -1,14 +1,26 @@
 package com.example.core.model;
 
+import jakarta.persistence.*;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 
-@Data
+@Entity
+@Table(name = "trainers")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@SuperBuilder
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
-public class Trainer extends User {
-    private String specialization;
+@Builder
+public class Trainer {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "training_type_id", nullable = false)
+    private TrainingType specialization;
 }

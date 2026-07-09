@@ -1,258 +1,223 @@
 package com.example.core.service;
 
-import com.example.core.dao.TrainingDao;
-import com.example.core.model.Training;
-import com.example.core.model.TrainingType;
+import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.dto.training.TrainingResponseDto;
+import com.example.core.mapper.TrainingMapper;
+import com.example.core.model.*;
+import com.example.core.repository.TraineeRepository;
+import com.example.core.repository.TrainerRepository;
+import com.example.core.repository.TrainingRepository;
 import com.example.core.service.impl.TrainingServiceImpl;
+import com.example.core.specification.TrainingSearchCriteria;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TrainingServiceImplTest {
 
     @Mock
-    private TrainingDao trainingDao;
+    private TrainingRepository trainingRepository;
+
+    @Mock
+    private TraineeRepository traineeRepository;
+
+    @Mock
+    private TrainerRepository trainerRepository;
+
+    @Mock
+    private TrainingMapper trainingMapper;
 
     @InjectMocks
     private TrainingServiceImpl trainingService;
 
     @Test
     void shouldCreateTrainingSuccessfully() {
-        var training = createTraining(null);
-        var savedTraining = createTraining(1L);
+        CreateTrainingRequestDto request = createTrainingRequest();
 
-        when(trainingDao.save(training)).thenReturn(savedTraining);
+        Trainee trainee = createTrainee("John.Smith");
+        Trainer trainer = createTrainer("Mike.Brown", "Fitness");
+        Training training = createTraining();
+        Training savedTraining = createTraining();
+        savedTraining.setId(1L);
+        savedTraining.setTrainee(trainee);
+        savedTraining.setTrainer(trainer);
+        savedTraining.setTrainingType(trainer.getSpecialization());
 
-        var result = trainingService.create(training);
+        TrainingResponseDto response = TrainingResponseDto.builder()
+                .trainingName("Morning Fitness")
+                .traineeUsername("John.Smith")
+                .trainerUsername("Mike.Brown")
+                .trainingType("Fitness")
+                .build();
 
-        assertEquals(savedTraining, result, "Created training should match saved training");
+        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
+        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
+        when(trainingMapper.toEntity(request)).thenReturn(training);
+        when(trainingRepository.save(training)).thenReturn(savedTraining);
+        when(trainingMapper.toResponseDto(savedTraining)).thenReturn(response);
 
-        verify(trainingDao).save(training);
+        TrainingResponseDto result = trainingService.createTraining(request);
+
+        assertEquals("Morning Fitness", result.getTrainingName(), "Training name should match");
+        assertEquals(trainee, training.getTrainee(), "Trainee should be assigned to training");
+        assertEquals(trainer, training.getTrainer(), "Trainer should be assigned to training");
+        assertEquals(trainer.getSpecialization(), training.getTrainingType(), "Training type should match trainer specialization");
+
+        verify(trainingRepository).save(training);
     }
 
     @Test
-    void shouldThrowExceptionWhenCreatingNullTraining() {
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(null),
-                "Creating null training should throw IllegalArgumentException"
+    void shouldThrowExceptionWhenTraineeNotFoundOnCreateTraining() {
+        CreateTrainingRequestDto request = createTrainingRequest();
+
+        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> trainingService.createTraining(request)
         );
 
-        assertEquals("Training cannot be null", exception.getMessage(), "Exception message should describe null training validation");
+        assertEquals("Trainee profile not found", exception.getMessage(), "Exception message should match");
 
-        verifyNoInteractions(trainingDao);
+        verify(trainerRepository, never()).findByUserUsername(anyString());
+        verify(trainingRepository, never()).save(any(Training.class));
     }
 
     @Test
-    void shouldThrowExceptionWhenTraineeIdIsNull() {
-        var training = createTraining(null);
-        training.setTraineeId(null);
+    void shouldThrowExceptionWhenTrainerNotFoundOnCreateTraining() {
+        CreateTrainingRequestDto request = createTrainingRequest();
 
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training without trainee id should throw IllegalArgumentException"
+        Trainee trainee = createTrainee("John.Smith");
+
+        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
+        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> trainingService.createTraining(request)
         );
 
-        assertEquals("Training trainee id cannot be null", exception.getMessage(), "Exception message should describe missing trainee id validation");
+        assertEquals("Trainer profile not found", exception.getMessage(), "Exception message should match");
 
-        verifyNoInteractions(trainingDao);
+        verify(trainingRepository, never()).save(any(Training.class));
     }
 
     @Test
-    void shouldThrowExceptionWhenTrainerIdIsNull() {
-        var training = createTraining(null);
-        training.setTrainerId(null);
+    void shouldFindAllTrainingsSuccessfully() {
+        TrainingSearchCriteria criteria = new TrainingSearchCriteria();
 
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training without trainer id should throw IllegalArgumentException"
+        Training trainingOne = createTraining();
+        Training trainingTwo = createTraining();
+
+        TrainingResponseDto responseOne = TrainingResponseDto.builder()
+                .trainingName("Morning Fitness")
+                .build();
+
+        TrainingResponseDto responseTwo = TrainingResponseDto.builder()
+                .trainingName("Evening Yoga")
+                .build();
+
+        when(trainingRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(trainingOne, trainingTwo));
+        when(trainingMapper.toResponseDto(trainingOne)).thenReturn(responseOne);
+        when(trainingMapper.toResponseDto(trainingTwo)).thenReturn(responseTwo);
+
+        List<TrainingResponseDto> result = trainingService.findAll(criteria);
+
+        assertEquals(2, result.size(), "Two trainings should be returned");
+        assertEquals("Morning Fitness", result.get(0).getTrainingName(), "First training name should match");
+        assertEquals("Evening Yoga", result.get(1).getTrainingName(), "Second training name should match");
+
+        verify(trainingRepository).findAll(any(Specification.class));
+        verify(trainingMapper, times(2)).toResponseDto(any(Training.class));
+    }
+
+    @Test
+    void shouldDeleteTrainingSuccessfully() {
+        when(trainingRepository.existsById(1L)).thenReturn(true);
+
+        trainingService.deleteById(1L);
+
+        verify(trainingRepository).deleteById(1L);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDeletingUnknownTraining() {
+        when(trainingRepository.existsById(1L)).thenReturn(false);
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> trainingService.deleteById(1L)
         );
 
-        assertEquals("Training trainer id cannot be null", exception.getMessage(), "Exception message should describe missing trainer id validation");
+        assertEquals("Training not found", exception.getMessage(), "Exception message should match");
 
-        verifyNoInteractions(trainingDao);
+        verify(trainingRepository, never()).deleteById(anyLong());
     }
 
-    @Test
-    void shouldThrowExceptionWhenTrainingNameIsNull() {
-        var training = createTraining(null);
-        training.setTrainingName(null);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training with null name should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training name cannot be empty", exception.getMessage(), "Exception message should describe empty training name validation");
-
-        verifyNoInteractions(trainingDao);
+    private CreateTrainingRequestDto createTrainingRequest() {
+        CreateTrainingRequestDto request = new CreateTrainingRequestDto();
+        request.setTrainingName("Morning Fitness");
+        request.setTrainingDate(LocalDate.of(2026, 7, 10));
+        request.setTrainingDuration(60);
+        request.setTraineeUsername("John.Smith");
+        request.setTrainerUsername("Mike.Brown");
+        return request;
     }
 
-    @Test
-    void shouldThrowExceptionWhenTrainingNameIsBlank() {
-        var training = createTraining(null);
-        training.setTrainingName(" ");
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training with blank name should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training name cannot be empty", exception.getMessage(), "Exception message should describe empty training name validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingTypeIsNull() {
-        var training = createTraining(null);
-        training.setTrainingType(null);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training without type should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training type cannot be null", exception.getMessage(), "Exception message should describe missing training type validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingDateIsNull() {
-        var training = createTraining(null);
-        training.setTrainingDate(null);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training without date should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training date cannot be null", exception.getMessage(), "Exception message should describe missing training date validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingDurationIsNull() {
-        var training = createTraining(null);
-        training.setTrainingDuration(null);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training without duration should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training duration cannot be null", exception.getMessage(), "Exception message should describe missing training duration validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingDurationIsZero() {
-        var training = createTraining(null);
-        training.setTrainingDuration(0);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training with zero duration should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training duration must be positive", exception.getMessage(), "Exception message should describe non-positive training duration validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingDurationIsNegative() {
-        var training = createTraining(null);
-        training.setTrainingDuration(-10);
-
-        var exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> trainingService.create(training),
-                "Creating training with negative duration should throw IllegalArgumentException"
-        );
-
-        assertEquals("Training duration must be positive", exception.getMessage(), "Exception message should describe non-positive training duration validation");
-
-        verifyNoInteractions(trainingDao);
-    }
-
-    @Test
-    void shouldGetTrainingByIdWhenTrainingExists() {
-        var training = createTraining(1L);
-
-        when(trainingDao.findById(1L)).thenReturn(Optional.of(training));
-
-        var result = trainingService.getTrainingById(1L);
-
-        assertTrue(result.isPresent(), "Training should be found by existing id");
-        assertEquals(training, result.get(), "Found training should match expected training");
-
-        verify(trainingDao).findById(1L);
-    }
-
-    @Test
-    void shouldReturnEmptyOptionalWhenTrainingDoesNotExist() {
-        when(trainingDao.findById(99L)).thenReturn(Optional.empty());
-
-        var result = trainingService.getTrainingById(99L);
-
-        assertTrue(result.isEmpty(), "Result should be empty when training id does not exist");
-
-        verify(trainingDao).findById(99L);
-    }
-
-    @Test
-    void shouldFindAllTrainings() {
-        var trainings = List.of(
-                createTraining(1L),
-                createTraining(2L)
-        );
-
-        when(trainingDao.findAll()).thenReturn(trainings);
-
-        var result = trainingService.findAll();
-
-        assertEquals(2, result.size(), "Result should contain two trainings");
-        assertEquals(trainings, result, "Result should match expected training list");
-
-        verify(trainingDao).findAll();
-    }
-
-    private Training createTraining(Long id) {
+    private Training createTraining() {
         return Training.builder()
-                .id(id)
-                .traineeId(1L)
-                .trainerId(1L)
-                .trainingName("Morning Workout")
-                .trainingType(
-                        TrainingType.builder()
-                                .id(1L)
-                                .trainingTypeName("Fitness")
-                                .build()
-                )
-                .trainingDate(LocalDate.of(2026, 6, 27))
+                .trainingName("Morning Fitness")
+                .trainingDate(LocalDate.of(2026, 7, 10))
                 .trainingDuration(60)
+                .build();
+    }
+
+    private Trainee createTrainee(String username) {
+        User user = User.builder()
+                .firstName("John")
+                .lastName("Smith")
+                .username(username)
+                .password("password123")
+                .isActive(true)
+                .build();
+
+        return Trainee.builder()
+                .user(user)
+                .build();
+    }
+
+    private Trainer createTrainer(String username, String specializationName) {
+        User user = User.builder()
+                .firstName("Mike")
+                .lastName("Brown")
+                .username(username)
+                .password("password123")
+                .isActive(true)
+                .build();
+
+        TrainingType specialization = TrainingType.builder()
+                .id(1L)
+                .trainingTypeName(specializationName)
+                .build();
+
+        return Trainer.builder()
+                .user(user)
+                .specialization(specialization)
                 .build();
     }
 }

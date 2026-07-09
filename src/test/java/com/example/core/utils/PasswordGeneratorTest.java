@@ -5,11 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class PasswordGeneratorTest {
+class PasswordGeneratorTest {
 
     @Test
     void shouldGeneratePasswordWithCorrectLength() {
-        var password = PasswordGenerator.generatePassword();
+        String password = PasswordGenerator.generatePassword();
 
         assertEquals(
                 10,
@@ -20,7 +20,7 @@ public class PasswordGeneratorTest {
 
     @Test
     void shouldGeneratePasswordContainingOnlyAllowedCharacters() {
-        var password = PasswordGenerator.generatePassword();
+        String password = PasswordGenerator.generatePassword();
 
         assertTrue(
                 password.matches("^[A-Za-z0-9]{10}$"),
@@ -30,8 +30,8 @@ public class PasswordGeneratorTest {
 
     @Test
     void shouldGenerateDifferentPasswords() {
-        var firstPassword = PasswordGenerator.generatePassword();
-        var secondPassword = PasswordGenerator.generatePassword();
+        String firstPassword = PasswordGenerator.generatePassword();
+        String secondPassword = PasswordGenerator.generatePassword();
 
         assertNotEquals(
                 firstPassword,
@@ -42,7 +42,7 @@ public class PasswordGeneratorTest {
 
     @Test
     void shouldGenerateNonBlankPassword() {
-        var password = PasswordGenerator.generatePassword();
+        String password = PasswordGenerator.generatePassword();
 
         assertNotNull(
                 password,
