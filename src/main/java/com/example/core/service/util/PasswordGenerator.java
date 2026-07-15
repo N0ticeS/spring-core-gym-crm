@@ -12,7 +12,7 @@ public final class PasswordGenerator {
         var password = new StringBuilder(PASSWORD_LENGTH);
 
         for (int i = 0; i < PASSWORD_LENGTH; i++) {
-            int index = random.nextInt(ALLOWED_CHARACTERS.length());
+            var index = random.nextInt(ALLOWED_CHARACTERS.length());
             password.append(ALLOWED_CHARACTERS.charAt(index));
         }
 

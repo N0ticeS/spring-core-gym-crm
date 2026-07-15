@@ -1,39 +1,27 @@
 package com.example.core.service.util;
 
-import java.util.Set;
+import com.example.core.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
-public final class UsernameGenerator {
+@Component
+@RequiredArgsConstructor
+public class UsernameGenerator {
+
     private static final String USERNAME_SEPARATOR = ".";
 
-    private UsernameGenerator() {
-    }
+    private final UserRepository userRepository;
 
-    public static String generate(String firstName, String lastName, Set<String> existingUsername) {
-        validateInput(firstName, lastName);
-
+    public String generate(String firstName, String lastName) {
         var baseUsername = firstName + USERNAME_SEPARATOR + lastName;
+        var username = baseUsername;
+        int suffix = 1;
 
-        if (!existingUsername.contains(baseUsername)) {
-            return baseUsername;
-        }
-
-        var suffix = 1;
-        String usernameWithSuffix;
-        do {
-            usernameWithSuffix = baseUsername + suffix;
+        while (userRepository.existsByUsername(username)) {
+            username = baseUsername + suffix;
             suffix++;
-        } while (existingUsername.contains(usernameWithSuffix));
-
-        return usernameWithSuffix;
-    }
-
-    private static void validateInput(String firstName, String lastName) {
-        if (firstName == null || firstName.isBlank()) {
-            throw new IllegalArgumentException("firstName is required");
         }
 
-        if (lastName == null || lastName.isBlank()) {
-            throw new IllegalArgumentException("lastName is required");
-        }
+        return username;
     }
 }

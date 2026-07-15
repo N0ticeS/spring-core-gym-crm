@@ -1,15 +1,16 @@
 package com.example.core.service;
 
-import com.example.core.model.Training;
+import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.dto.training.TrainingResponseDto;
+import com.example.core.specification.TrainingSearchCriteria;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface TrainingService {
 
-    Training create(Training training);
+    TrainingResponseDto createTraining(CreateTrainingRequestDto request);
 
-    Optional<Training> getTrainingById(long id);
+    List<TrainingResponseDto> findAll(TrainingSearchCriteria criteria);
 
-    List<Training> findAll();
+    void deleteById(Long id);
 }

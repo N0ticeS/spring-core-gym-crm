@@ -1,93 +1,102 @@
 package com.example.core.service.impl;
 
-import com.example.core.dao.TrainingDao;
-import com.example.core.model.Training;
+import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.dto.training.TrainingResponseDto;
+import com.example.core.mapper.TrainingMapper;
+import com.example.core.model.Trainee;
+import com.example.core.model.Trainer;
+import com.example.core.repository.TraineeRepository;
+import com.example.core.repository.TrainerRepository;
+import com.example.core.repository.TrainingRepository;
 import com.example.core.service.TrainingService;
+import com.example.core.specification.TrainingSearchCriteria;
+import com.example.core.specification.TrainingSpecification;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TrainingServiceImpl implements TrainingService {
 
-    private final TrainingDao trainingDao;
+    private final TrainingRepository trainingRepository;
+    private final TraineeRepository traineeRepository;
+    private final TrainerRepository trainerRepository;
+    private final TrainingMapper trainingMapper;
 
     @Override
-    public Training create(Training training) {
-        validateTrainingForCreate(training);
+    @Transactional
+    public TrainingResponseDto createTraining(CreateTrainingRequestDto request) {
+        log.debug("Creating training request, trainee username {}, trainer username {}",
+                request.getTraineeUsername(), request.getTrainerUsername());
 
-        log.debug("Creating training, trainee id {}, trainer id {}, training name {}",
-                training.getTraineeId(), training.getTrainerId(), training.getTrainingName());
+        var trainee = findTraineeByUsername(request.getTraineeUsername());
+        var trainer = findTrainerByUsername(request.getTrainerUsername());
 
-        var savedTraining = trainingDao.save(training);
+        var training = trainingMapper.toEntity(request);
+        training.setTrainee(trainee);
+        training.setTrainer(trainer);
+        training.setTrainingType(trainer.getSpecialization());
 
-        log.info("Training created successfully, id {}, trainee id {}, trainer id {}",
-                training.getId(), training.getTraineeId(), training.getTrainerId());
+        var savedTraining = trainingRepository.save(training);
 
-        return savedTraining;
+        log.info("Training created successfully, id {}, trainee username {}, trainer username {}",
+                savedTraining.getId(),
+                savedTraining.getTrainee().getUser().getUsername(),
+                savedTraining.getTrainer().getUser().getUsername());
+
+        return trainingMapper.toResponseDto(savedTraining);
     }
 
     @Override
-    public Optional<Training> getTrainingById(long id) {
-        log.debug("Getting training by id {}", id);
+    @Transactional(readOnly = true)
+    public List<TrainingResponseDto> findAll(TrainingSearchCriteria criteria) {
+        log.debug("Searching trainings with criteria {}", criteria);
 
-        var training = trainingDao.findById(id);
+        var trainings = trainingRepository
+                .findAll(TrainingSpecification.byCriteria(criteria))
+                .stream()
+                .map(trainingMapper::toResponseDto)
+                .toList();
 
-        if (training.isPresent()) {
-            log.info("Training found successfully, id {}", id);
-        } else {
-            log.warn("Training not found, id {}", id);
-        }
+        log.info("Trainings found, count {}", trainings.size());
 
-        return training;
-    }
-
-    @Override
-    public List<Training> findAll() {
-        log.debug("Getting all trainings");
-
-        var trainings = trainingDao.findAll();
-
-        log.info("Found {} trainings", trainings.size());
         return trainings;
     }
 
-    private void validateTrainingForCreate(Training training) {
-        if (training == null) {
-            throw new IllegalArgumentException("Training cannot be null");
+    @Override
+    @Transactional
+    public void deleteById(Long id) {
+        log.debug("Deleting training by id {}", id);
+
+        if (!trainingRepository.existsById(id)) {
+            log.warn("Training delete failed because training not found, id {}", id);
+            throw new EntityNotFoundException("Training not found");
         }
 
-        if (training.getTraineeId() == null) {
-            throw new IllegalArgumentException("Training trainee id cannot be null");
-        }
+        trainingRepository.deleteById(id);
 
-        if (training.getTrainerId() == null) {
-            throw new IllegalArgumentException("Training trainer id cannot be null");
-        }
+        log.info("Training deleted successfully, id {}", id);
+    }
 
-        if (training.getTrainingName() == null || training.getTrainingName().isBlank()) {
-            throw new IllegalArgumentException("Training name cannot be empty");
-        }
+    private Trainee findTraineeByUsername(String username) {
+        return traineeRepository.findByUserUsername(username)
+                .orElseThrow(() -> {
+                    log.warn("Trainee profile not found, username {}", username);
+                    return new EntityNotFoundException("Trainee profile not found");
+                });
+    }
 
-        if (training.getTrainingType() == null) {
-            throw new IllegalArgumentException("Training type cannot be null");
-        }
-
-        if (training.getTrainingDate() == null) {
-            throw new IllegalArgumentException("Training date cannot be null");
-        }
-
-        if (training.getTrainingDuration() == null) {
-            throw new IllegalArgumentException("Training duration cannot be null");
-        }
-
-        if (training.getTrainingDuration() <= 0) {
-            throw new IllegalArgumentException("Training duration must be positive");
-        }
+    private Trainer findTrainerByUsername(String username) {
+        return trainerRepository.findByUserUsername(username)
+                .orElseThrow(() -> {
+                    log.warn("Trainer profile not found, username {}", username);
+                    return new EntityNotFoundException("Trainer profile not found");
+                });
     }
 }
