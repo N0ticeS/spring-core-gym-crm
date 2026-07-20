@@ -1,17 +1,8 @@
 package com.example.core.service;
 
-import com.example.core.dto.auth.ChangePasswordRequestDto;
-import com.example.core.dto.auth.CreatedProfileResponseDto;
+import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
-import com.example.core.dto.trainee.TraineeResponseDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
-import com.example.core.dto.trainer.TrainerResponseDto;
-import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.exception.AuthenticationException;
-import com.example.core.mapper.AuthMapper;
-import com.example.core.mapper.TraineeMapper;
-import com.example.core.mapper.TrainerMapper;
-import com.example.core.mapper.TrainingMapper;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
@@ -19,7 +10,6 @@ import com.example.core.model.User;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
 import com.example.core.repository.TrainingRepository;
-import com.example.core.repository.UserRepository;
 import com.example.core.service.impl.TraineeServiceImpl;
 import com.example.core.service.util.UsernameGenerator;
 import com.example.core.specification.TrainingSearchCriteria;
@@ -54,19 +44,7 @@ class TraineeServiceImplTest {
     private TrainingRepository trainingRepository;
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private TrainerMapper trainerMapper;
-
-    @Mock
-    private TraineeMapper traineeMapper;
-
-    @Mock
-    private TrainingMapper trainingMapper;
-
-    @Mock
-    private AuthMapper authMapper;
+    private CreateTraineeRequestToTraineeConverter createTraineeConverter;
 
     @Mock
     private UsernameGenerator usernameGenerator;
@@ -80,17 +58,11 @@ class TraineeServiceImplTest {
 
         Trainee trainee = createTrainee(null);
 
-        CreatedProfileResponseDto response = CreatedProfileResponseDto.builder()
-                .username("John.Smith")
-                .password("password123")
-                .build();
-
         when(usernameGenerator.generate("John", "Smith")).thenReturn("John.Smith");
-        when(traineeMapper.toEntity(request)).thenReturn(trainee);
+        when(createTraineeConverter.convert(request)).thenReturn(trainee);
         when(traineeRepository.save(trainee)).thenReturn(trainee);
-        when(authMapper.toCreateProfileResponseDto(any(User.class))).thenReturn(response);
 
-        CreatedProfileResponseDto result = traineeService.create(request);
+        User result = traineeService.create(request);
 
         assertEquals("John.Smith", result.getUsername(), "Username should match generated username");
         assertEquals("John.Smith", trainee.getUser().getUsername(), "User should be set to trainee");
@@ -99,20 +71,38 @@ class TraineeServiceImplTest {
     }
 
     @Test
+    void shouldThrowExceptionWhenCreateTraineeConversionFails() {
+        CreateTraineeRequestDto request = createTraineeRequest();
+
+        when(usernameGenerator.generate("John", "Smith")).thenReturn("John.Smith");
+        when(createTraineeConverter.convert(request)).thenReturn(null);
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> traineeService.create(request)
+        );
+
+        assertEquals(
+                "Failed to convert CreateTraineeRequestDto to Trainee",
+                exception.getMessage(),
+                "Exception message should match"
+        );
+
+        verify(traineeRepository, never()).save(any(Trainee.class));
+    }
+
+    @Test
     void shouldFindTraineeByUsernameSuccessfully() {
         User user = createUser("John", "Smith", "John.Smith", "password123");
         Trainee trainee = createTrainee(user);
-        TraineeResponseDto response = createTraineeResponse("John.Smith");
 
         when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
-        when(traineeMapper.toResponseDto(trainee)).thenReturn(response);
 
-        TraineeResponseDto result = traineeService.findByUsername("John.Smith");
+        Trainee result = traineeService.findByUsername("John.Smith");
 
-        assertEquals("John.Smith", result.getUsername(), "Trainee username should match");
+        assertEquals("John.Smith", result.getUser().getUsername(), "Trainee username should match");
 
         verify(traineeRepository).findByUserUsername("John.Smith");
-        verify(traineeMapper).toResponseDto(trainee);
     }
 
     @Test
@@ -136,71 +126,108 @@ class TraineeServiceImplTest {
         Trainee traineeTwo = createTrainee(createUser("Jane", "Brown", "Jane.Brown", "password123"));
 
         when(traineeRepository.findAll()).thenReturn(List.of(traineeOne, traineeTwo));
-        when(traineeMapper.toResponseDto(traineeOne)).thenReturn(createTraineeResponse("John.Smith"));
-        when(traineeMapper.toResponseDto(traineeTwo)).thenReturn(createTraineeResponse("Jane.Brown"));
 
-        List<TraineeResponseDto> result = traineeService.findAll();
+        List<Trainee> result = traineeService.findAll();
 
         assertEquals(2, result.size(), "Two trainees should be returned");
 
         verify(traineeRepository).findAll();
-        verify(traineeMapper, times(2)).toResponseDto(any(Trainee.class));
     }
 
     @Test
     void shouldUpdateTraineeSuccessfully() {
         UpdateTraineeRequestDto request = updateTraineeRequest();
 
-        Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "password123"));
-        TraineeResponseDto response = createTraineeResponse("John.Smith");
-
-        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
-        when(traineeRepository.save(trainee)).thenReturn(trainee);
-        when(traineeMapper.toResponseDto(trainee)).thenReturn(response);
-
-        TraineeResponseDto result = traineeService.update("John.Smith", request);
-
-        assertEquals("John.Smith", result.getUsername(), "Updated trainee username should match");
-
-        verify(traineeMapper).updateEntity(request, trainee);
-        verify(traineeRepository).save(trainee);
-    }
-
-    @Test
-    void shouldChangePasswordSuccessfully() {
-        ChangePasswordRequestDto request = changePasswordRequest("oldPassword", "newPassword123");
-
-        Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "oldPassword"));
-
-        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
-        when(userRepository.existsByUsernameAndPassword("John.Smith", "oldPassword")).thenReturn(true);
-
-        traineeService.changePassword("John.Smith", request);
-
-        assertEquals("newPassword123", trainee.getUser().getPassword(),
-                "Password should be changed to new password");
-
-        verify(traineeRepository).save(trainee);
-    }
-
-    @Test
-    void shouldThrowAuthenticationExceptionWhenOldPasswordIsInvalid() {
-        ChangePasswordRequestDto request = changePasswordRequest("wrongPassword", "newPassword123");
-
-        Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "oldPassword"));
-
-        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
-        when(userRepository.existsByUsernameAndPassword("John.Smith", "wrongPassword")).thenReturn(false);
-
-        AuthenticationException exception = assertThrows(
-                AuthenticationException.class,
-                () -> traineeService.changePassword("John.Smith", request)
+        Trainee trainee = createTrainee(
+                createUser(
+                        "John",
+                        "Smith",
+                        "John.Smith",
+                        "password123"
+                )
         );
 
-        assertEquals("Invalid current password", exception.getMessage(),
-                "Exception message should match");
+        when(traineeRepository.findByUserUsername("John.Smith"))
+                .thenReturn(Optional.of(trainee));
 
-        verify(traineeRepository, never()).save(any(Trainee.class));
+        when(traineeRepository.save(trainee))
+                .thenReturn(trainee);
+
+        Trainee result =
+                traineeService.update("John.Smith", request);
+
+        assertEquals(
+                "John.Smith",
+                result.getUser().getUsername(),
+                "Updated trainee username should match"
+        );
+
+        assertEquals(
+                request.getFirstName(),
+                trainee.getUser().getFirstName(),
+                "First name should be updated"
+        );
+
+        assertEquals(
+                request.getLastName(),
+                trainee.getUser().getLastName(),
+                "Last name should be updated"
+        );
+
+        assertEquals(
+                request.getDateOfBirth(),
+                trainee.getDateOfBirth(),
+                "Date of birth should be updated"
+        );
+
+        assertEquals(
+                request.getAddress(),
+                trainee.getAddress(),
+                "Address should be updated"
+        );
+
+        verify(traineeRepository).save(trainee);
+    }
+
+    @Test
+    void shouldKeepOptionalFieldsWhenUpdateValuesAreNull() {
+        UpdateTraineeRequestDto request = new UpdateTraineeRequestDto();
+        request.setFirstName("John");
+        request.setLastName("Updated");
+
+        Trainee trainee = createTrainee(
+                createUser(
+                        "John",
+                        "Smith",
+                        "John.Smith",
+                        "password123"
+                )
+        );
+
+        LocalDate oldDateOfBirth = trainee.getDateOfBirth();
+        String oldAddress = trainee.getAddress();
+
+        when(traineeRepository.findByUserUsername("John.Smith"))
+                .thenReturn(Optional.of(trainee));
+
+        when(traineeRepository.save(trainee))
+                .thenReturn(trainee);
+
+        traineeService.update("John.Smith", request);
+
+        assertEquals(
+                oldDateOfBirth,
+                trainee.getDateOfBirth(),
+                "Date of birth should remain unchanged"
+        );
+
+        assertEquals(
+                oldAddress,
+                trainee.getAddress(),
+                "Address should remain unchanged"
+        );
+
+        verify(traineeRepository).save(trainee);
     }
 
     @Test
@@ -249,17 +276,13 @@ class TraineeServiceImplTest {
     void shouldGetTraineeTrainingsSuccessfully() {
         Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "password123"));
         Training training = new Training();
-        TrainingResponseDto response = TrainingResponseDto.builder()
-                .trainingName("Morning Fitness")
-                .build();
 
         TrainingSearchCriteria criteria = new TrainingSearchCriteria();
 
         when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
         when(trainingRepository.findAll(any(Specification.class))).thenReturn(List.of(training));
-        when(trainingMapper.toResponseDto(training)).thenReturn(response);
 
-        List<TrainingResponseDto> result = traineeService.getTrainings("John.Smith", criteria);
+        List<Training> result = traineeService.getTrainings("John.Smith", criteria);
 
         assertEquals(1, result.size(), "One training should be returned");
         assertEquals("John.Smith", criteria.getTraineeUsername(),
@@ -276,22 +299,14 @@ class TraineeServiceImplTest {
         Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "password123"));
         trainee.setTrainers(new HashSet<>(Set.of(assignedTrainer)));
 
-        TrainerResponseDto response = TrainerResponseDto.builder()
-                .username("Anna.Wilson")
-                .build();
-
         when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
         when(trainerRepository.findAll()).thenReturn(List.of(assignedTrainer, notAssignedTrainer));
-        when(trainerMapper.toResponseDto(notAssignedTrainer)).thenReturn(response);
 
-        List<TrainerResponseDto> result = traineeService.getNotAssignedTrainers("John.Smith");
+        List<Trainer> result = traineeService.getNotAssignedTrainers("John.Smith");
 
         assertEquals(1, result.size(), "Only one trainer should be not assigned");
-        assertEquals("Anna.Wilson", result.get(0).getUsername(),
+        assertEquals("Anna.Wilson", result.get(0).getUser().getUsername(),
                 "Not assigned trainer username should match");
-
-        verify(trainerMapper).toResponseDto(notAssignedTrainer);
-        verify(trainerMapper, never()).toResponseDto(assignedTrainer);
     }
 
     @Test
@@ -300,23 +315,47 @@ class TraineeServiceImplTest {
         Trainer trainerOne = createTrainer(createUser("Mike", "Johnson", "Mike.Johnson", "password123"));
         Trainer trainerTwo = createTrainer(createUser("Anna", "Wilson", "Anna.Wilson", "password123"));
 
-        TraineeResponseDto response = createTraineeResponse("John.Smith");
-
         when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
         when(trainerRepository.findByUserUsername("Mike.Johnson")).thenReturn(Optional.of(trainerOne));
         when(trainerRepository.findByUserUsername("Anna.Wilson")).thenReturn(Optional.of(trainerTwo));
         when(traineeRepository.save(trainee)).thenReturn(trainee);
-        when(traineeMapper.toResponseDto(trainee)).thenReturn(response);
 
-        TraineeResponseDto result = traineeService.updateTrainers(
+        Trainee result = traineeService.updateTrainers(
                 "John.Smith",
                 Set.of("Mike.Johnson", "Anna.Wilson")
         );
 
-        assertEquals("John.Smith", result.getUsername(), "Trainee username should match");
+        assertEquals("John.Smith", result.getUser().getUsername(), "Trainee username should match");
         assertEquals(2, trainee.getTrainers().size(), "Trainee should have two trainers");
 
         verify(traineeRepository).save(trainee);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenTrainerNotFoundDuringUpdateTrainers() {
+        Trainee trainee = createTrainee(createUser("John", "Smith", "John.Smith", "password123"));
+
+        when(traineeRepository.findByUserUsername("John.Smith"))
+                .thenReturn(Optional.of(trainee));
+
+        when(trainerRepository.findByUserUsername("Unknown.Trainer"))
+                .thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> traineeService.updateTrainers(
+                        "John.Smith",
+                        Set.of("Unknown.Trainer")
+                )
+        );
+
+        assertEquals(
+                "Trainer profile not found",
+                exception.getMessage(),
+                "Exception message should match"
+        );
+
+        verify(traineeRepository, never()).save(any(Trainee.class));
     }
 
     private CreateTraineeRequestDto createTraineeRequest() {
@@ -334,14 +373,6 @@ class TraineeServiceImplTest {
         request.setLastName("Updated");
         request.setDateOfBirth(LocalDate.of(2000, 1, 1));
         request.setAddress("Updated address");
-        return request;
-    }
-
-    private ChangePasswordRequestDto changePasswordRequest(String oldPassword, String newPassword) {
-        ChangePasswordRequestDto request = new ChangePasswordRequestDto();
-        request.setOldPassword(oldPassword);
-        request.setPassword(newPassword);
-        request.setConfirmPassword(newPassword);
         return request;
     }
 
@@ -367,18 +398,6 @@ class TraineeServiceImplTest {
     private Trainer createTrainer(User user) {
         return Trainer.builder()
                 .user(user)
-                .build();
-    }
-
-    private TraineeResponseDto createTraineeResponse(String username) {
-        return TraineeResponseDto.builder()
-                .firstName("John")
-                .lastName("Smith")
-                .username(username)
-                .active(true)
-                .dateOfBirth(LocalDate.of(2000, 1, 1))
-                .address("New York")
-                .trainers(Set.of())
                 .build();
     }
 }
