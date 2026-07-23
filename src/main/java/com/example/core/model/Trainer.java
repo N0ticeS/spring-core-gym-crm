@@ -3,6 +3,9 @@ package com.example.core.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "trainers")
 @Getter
@@ -23,4 +26,7 @@ public class Trainer {
     @ManyToOne
     @JoinColumn(name = "training_type_id", nullable = false)
     private TrainingType specialization;
+
+    @ManyToMany(mappedBy = "trainers")
+    private Set<Trainee> trainees = new HashSet<>();
 }

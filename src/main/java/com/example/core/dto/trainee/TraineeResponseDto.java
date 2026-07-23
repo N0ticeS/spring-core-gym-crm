@@ -1,5 +1,6 @@
 package com.example.core.dto.trainee;
 
+import com.example.core.dto.trainer.TrainerShortResponseDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,5 +21,5 @@ public class TraineeResponseDto {
     private Boolean active;
     private LocalDate dateOfBirth;
     private String address;
-    private Set<String> trainers;
+    private Set<TrainerShortResponseDto> trainers;
 }

@@ -1,22 +1,14 @@
 package com.example.core.service.impl;
 
-import com.example.core.dto.auth.ChangePasswordRequestDto;
-import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.trainer.CreateTrainerRequestDto;
-import com.example.core.dto.trainer.TrainerResponseDto;
 import com.example.core.dto.trainer.UpdateTrainerRequestDto;
-import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.exception.AuthenticationException;
-import com.example.core.mapper.AuthMapper;
-import com.example.core.mapper.TrainerMapper;
-import com.example.core.mapper.TrainingMapper;
 import com.example.core.model.Trainer;
+import com.example.core.model.Training;
 import com.example.core.model.TrainingType;
 import com.example.core.model.User;
 import com.example.core.repository.TrainerRepository;
 import com.example.core.repository.TrainingRepository;
 import com.example.core.repository.TrainingTypeRepository;
-import com.example.core.repository.UserRepository;
 import com.example.core.service.TrainerService;
 import com.example.core.service.util.PasswordGenerator;
 import com.example.core.service.util.UsernameGenerator;
@@ -38,17 +30,11 @@ public class TrainerServiceImpl implements TrainerService {
     private final TrainerRepository trainerRepository;
     private final TrainingRepository trainingRepository;
     private final TrainingTypeRepository trainingTypeRepository;
-    private final UserRepository userRepository;
-
-    private final TrainerMapper trainerMapper;
-    private final TrainingMapper trainingMapper;
-    private final AuthMapper authMapper;
-
     private final UsernameGenerator usernameGenerator;
 
     @Override
     @Transactional
-    public CreatedProfileResponseDto create(CreateTrainerRequestDto request) {
+    public User create(CreateTrainerRequestDto request) {
         log.debug("Creating trainer profile for first name {}, last name {}",
                 request.getFirstName(), request.getLastName());
 
@@ -65,9 +51,10 @@ public class TrainerServiceImpl implements TrainerService {
                 .isActive(true)
                 .build();
 
-        var trainer = trainerMapper.toEntity(request);
-        trainer.setUser(user);
-        trainer.setSpecialization(specialization);
+        var trainer = Trainer.builder()
+                .user(user)
+                .specialization(specialization)
+                .build();
 
         var savedTrainer = trainerRepository.save(trainer);
 
@@ -75,30 +62,27 @@ public class TrainerServiceImpl implements TrainerService {
                 savedTrainer.getUser().getUsername(),
                 savedTrainer.getSpecialization().getTrainingTypeName());
 
-        return authMapper.toCreateProfileResponseDto(savedTrainer.getUser());
+        return savedTrainer.getUser();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public TrainerResponseDto findByUsername(String username) {
+    public Trainer findByUsername(String username) {
         log.debug("Finding trainer profile by username {}", username);
 
         var trainer = findTrainerByUsername(username);
 
         log.info("Trainer profile found successfully, username {}", username);
 
-        return trainerMapper.toResponseDto(trainer);
+        return trainer;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<TrainerResponseDto> findAll() {
+    public List<Trainer> findAll() {
         log.debug("Searching all trainers profile");
 
-        var trainers = trainerRepository.findAll()
-                .stream()
-                .map(trainerMapper::toResponseDto)
-                .toList();
+        var trainers = trainerRepository.findAll();
 
         log.info("Trainers found successfully, count {}", trainers.size());
         return trainers;
@@ -106,39 +90,18 @@ public class TrainerServiceImpl implements TrainerService {
 
     @Override
     @Transactional
-    public TrainerResponseDto update(String username, UpdateTrainerRequestDto request) {
-        log.debug("Updating trainer profile for username {}, specialization {}",
-                username, request.getSpecialization());
+    public Trainer update(String username, UpdateTrainerRequestDto request) {
+        log.debug("Updating trainer profile for username {}", username);
 
         var trainer = findTrainerByUsername(username);
-        var specialization = findTrainingTypeByName(request.getSpecialization());
 
-        trainerMapper.updateEntity(request, trainer);
-        trainer.setSpecialization(specialization);
+        trainer.getUser().setFirstName(request.getFirstName());
+        trainer.getUser().setLastName(request.getLastName());
 
         var updatedTrainer = trainerRepository.save(trainer);
 
         log.info("Trainer profile updated successfully, username {}", username);
-        return trainerMapper.toResponseDto(updatedTrainer);
-    }
-
-    @Override
-    @Transactional
-    public void changePassword(String username, ChangePasswordRequestDto request) {
-        log.debug("Changing trainer password, username {}", username);
-
-        var trainer = findTrainerByUsername(username);
-
-        boolean passwordMatches = userRepository.existsByUsernameAndPassword(username, request.getOldPassword());
-        if (!passwordMatches) {
-            log.warn("Trainer password change failed due to invalid current password, username {}", username);
-            throw new AuthenticationException("Invalid current password");
-        }
-
-        trainer.getUser().setPassword(request.getPassword());
-        trainerRepository.save(trainer);
-
-        log.info("Trainer password change successfully, username {}", username);
+        return updatedTrainer;
     }
 
     @Override
@@ -174,7 +137,7 @@ public class TrainerServiceImpl implements TrainerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TrainingResponseDto> getTrainings(String username, TrainingSearchCriteria criteria) {
+    public List<Training> getTrainings(String username, TrainingSearchCriteria criteria) {
         log.debug("Searching trainings for trainer username {}, criteria {}", username, criteria);
 
         findTrainerByUsername(username);
@@ -183,7 +146,6 @@ public class TrainerServiceImpl implements TrainerService {
         var trainings = trainingRepository
                 .findAll(TrainingSpecification.byCriteria(criteria))
                 .stream()
-                .map(trainingMapper::toResponseDto)
                 .toList();
 
         log.info("Trainings found for trainer username {}, count {}", username, trainings.size());
