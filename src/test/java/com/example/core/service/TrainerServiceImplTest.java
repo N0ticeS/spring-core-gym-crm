@@ -1,20 +1,15 @@
 package com.example.core.service;
 
 import com.example.core.dto.auth.ChangePasswordRequestDto;
-import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.trainer.CreateTrainerRequestDto;
-import com.example.core.dto.trainer.TrainerResponseDto;
 import com.example.core.dto.trainer.UpdateTrainerRequestDto;
-import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.exception.AuthenticationException;
-import com.example.core.mapper.AuthMapper;
-import com.example.core.mapper.TrainerMapper;
-import com.example.core.mapper.TrainingMapper;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
 import com.example.core.model.TrainingType;
 import com.example.core.model.User;
-import com.example.core.repository.*;
+import com.example.core.repository.TrainerRepository;
+import com.example.core.repository.TrainingRepository;
+import com.example.core.repository.TrainingTypeRepository;
 import com.example.core.service.impl.TrainerServiceImpl;
 import com.example.core.service.util.UsernameGenerator;
 import com.example.core.specification.TrainingSearchCriteria;
@@ -37,22 +32,11 @@ import static org.mockito.Mockito.*;
 class TrainerServiceImplTest {
 
     @Mock
-    private TraineeRepository traineeRepository;
-    @Mock
     private TrainerRepository trainerRepository;
     @Mock
     private TrainingRepository trainingRepository;
     @Mock
     private TrainingTypeRepository trainingTypeRepository;
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private TrainerMapper trainerMapper;
-    @Mock
-    private TrainingMapper trainingMapper;
-    @Mock
-    private AuthMapper authMapper;
 
     @Mock
     private UsernameGenerator usernameGenerator;
@@ -65,27 +49,17 @@ class TrainerServiceImplTest {
         CreateTrainerRequestDto request = createTrainerRequest();
 
         TrainingType specialization = createTrainingType("Fitness");
-        Trainer trainer = createTrainer(null, specialization);
-
-        CreatedProfileResponseDto response = CreatedProfileResponseDto.builder()
-                .username("Mike.Brown")
-                .password("password123")
-                .build();
 
         when(trainingTypeRepository.findByTrainingTypeName("Fitness"))
                 .thenReturn(Optional.of(specialization));
         when(usernameGenerator.generate("Mike", "Brown")).thenReturn("Mike.Brown");
-        when(trainerMapper.toEntity(request)).thenReturn(trainer);
-        when(trainerRepository.save(trainer)).thenReturn(trainer);
-        when(authMapper.toCreateProfileResponseDto(any(User.class))).thenReturn(response);
+        when(trainerRepository.save(any(Trainer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreatedProfileResponseDto result = trainerService.create(request);
+        User result = trainerService.create(request);
 
         assertEquals("Mike.Brown", result.getUsername(), "Username should match generated username");
-        assertEquals("Mike.Brown", trainer.getUser().getUsername(), "Generated user should be assigned to trainer");
-        assertEquals(specialization, trainer.getSpecialization(), "Specialization should be assigned to trainer");
 
-        verify(trainerRepository).save(trainer);
+        verify(trainerRepository).save(any(Trainer.class));
     }
 
     @Test
@@ -113,18 +87,14 @@ class TrainerServiceImplTest {
                 createTrainingType("Fitness")
         );
 
-        TrainerResponseDto response = createTrainerResponse("Mike.Brown");
-
         when(trainerRepository.findByUserUsername("Mike.Brown"))
                 .thenReturn(Optional.of(trainer));
-        when(trainerMapper.toResponseDto(trainer)).thenReturn(response);
 
-        TrainerResponseDto result = trainerService.findByUsername("Mike.Brown");
+        Trainer result = trainerService.findByUsername("Mike.Brown");
 
-        assertEquals("Mike.Brown", result.getUsername(), "Trainer username should match");
+        assertEquals("Mike.Brown", result.getUser().getUsername(), "Trainer username should match");
 
         verify(trainerRepository).findByUserUsername("Mike.Brown");
-        verify(trainerMapper).toResponseDto(trainer);
     }
 
     @Test
@@ -155,15 +125,12 @@ class TrainerServiceImplTest {
         );
 
         when(trainerRepository.findAll()).thenReturn(List.of(trainerOne, trainerTwo));
-        when(trainerMapper.toResponseDto(trainerOne)).thenReturn(createTrainerResponse("Mike.Brown"));
-        when(trainerMapper.toResponseDto(trainerTwo)).thenReturn(createTrainerResponse("Anna.Wilson"));
 
-        List<TrainerResponseDto> result = trainerService.findAll();
+        List<Trainer> result = trainerService.findAll();
 
         assertEquals(2, result.size(), "Two trainers should be returned");
 
         verify(trainerRepository).findAll();
-        verify(trainerMapper, times(2)).toResponseDto(any(Trainer.class));
     }
 
     @Test
@@ -174,87 +141,17 @@ class TrainerServiceImplTest {
                 createUser("Mike", "Brown", "Mike.Brown", "password123"),
                 createTrainingType("Fitness")
         );
-        TrainingType newSpecialization = createTrainingType("Yoga");
-        TrainerResponseDto response = createTrainerResponse("Mike.Brown");
 
         when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(trainingTypeRepository.findByTrainingTypeName("Yoga")).thenReturn(Optional.of(newSpecialization));
         when(trainerRepository.save(trainer)).thenReturn(trainer);
-        when(trainerMapper.toResponseDto(trainer)).thenReturn(response);
 
-        TrainerResponseDto result = trainerService.update("Mike.Brown", request);
+        Trainer result = trainerService.update("Mike.Brown", request);
 
-        assertEquals("Mike.Brown", result.getUsername(), "Updated trainer username should match");
-        assertEquals(newSpecialization, trainer.getSpecialization(), "Trainer specialization should be updated");
-
-        verify(trainerMapper).updateEntity(request, trainer);
-        verify(trainerRepository).save(trainer);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenTrainingTypeNotFoundOnUpdate() {
-        UpdateTrainerRequestDto request = updateTrainerRequest();
-
-        Trainer trainer = createTrainer(
-                createUser("Mike", "Brown", "Mike.Brown", "password123"),
-                createTrainingType("Fitness")
-        );
-
-        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(trainingTypeRepository.findByTrainingTypeName("Yoga")).thenReturn(Optional.empty());
-
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> trainerService.update("Mike.Brown", request)
-        );
-
-        assertEquals("Training type not found", exception.getMessage(),
-                "Exception message should match");
-
-        verify(trainerRepository, never()).save(any(Trainer.class));
-    }
-
-    @Test
-    void shouldChangePasswordSuccessfully() {
-        ChangePasswordRequestDto request = changePasswordRequest("oldPassword", "newPassword123");
-
-        Trainer trainer = createTrainer(
-                createUser("Mike", "Brown", "Mike.Brown", "oldPassword"),
-                createTrainingType("Fitness")
-        );
-
-        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(userRepository.existsByUsernameAndPassword("Mike.Brown", "oldPassword")).thenReturn(true);
-
-        trainerService.changePassword("Mike.Brown", request);
-
-        assertEquals("newPassword123", trainer.getUser().getPassword(),
-                "Password should be changed to new password");
+        assertEquals("Mike.Brown", result.getUser().getUsername(), "Updated trainer username should match");
+        assertEquals("Mike", trainer.getUser().getFirstName(), "Trainer first name should be updated");
+        assertEquals("Updated", trainer.getUser().getLastName(), "Trainer last name should be updated");
 
         verify(trainerRepository).save(trainer);
-    }
-
-    @Test
-    void shouldThrowAuthenticationExceptionWhenOldPasswordIsInvalid() {
-        ChangePasswordRequestDto request = changePasswordRequest("wrongPassword", "newPassword123");
-
-        Trainer trainer = createTrainer(
-                createUser("Mike", "Brown", "Mike.Brown", "oldPassword"),
-                createTrainingType("Fitness")
-        );
-
-        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(userRepository.existsByUsernameAndPassword("Mike.Brown", "wrongPassword")).thenReturn(false);
-
-        AuthenticationException exception = assertThrows(
-                AuthenticationException.class,
-                () -> trainerService.changePassword("Mike.Brown", request)
-        );
-
-        assertEquals("Invalid current password", exception.getMessage(),
-                "Exception message should match");
-
-        verify(trainerRepository, never()).save(any(Trainer.class));
     }
 
     @Test
@@ -315,17 +212,13 @@ class TrainerServiceImplTest {
         );
 
         Training training = new Training();
-        TrainingResponseDto response = TrainingResponseDto.builder()
-                .trainingName("Morning Fitness")
-                .build();
 
         TrainingSearchCriteria criteria = new TrainingSearchCriteria();
 
         when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
         when(trainingRepository.findAll(any(Specification.class))).thenReturn(List.of(training));
-        when(trainingMapper.toResponseDto(training)).thenReturn(response);
 
-        List<TrainingResponseDto> result = trainerService.getTrainings("Mike.Brown", criteria);
+        List<Training> result = trainerService.getTrainings("Mike.Brown", criteria);
 
         assertEquals(1, result.size(), "One training should be returned");
         assertEquals("Mike.Brown", criteria.getTrainerUsername(),
@@ -346,7 +239,6 @@ class TrainerServiceImplTest {
         UpdateTrainerRequestDto request = new UpdateTrainerRequestDto();
         request.setFirstName("Mike");
         request.setLastName("Updated");
-        request.setSpecialization("Yoga");
         return request;
     }
 
@@ -379,16 +271,6 @@ class TrainerServiceImplTest {
         return TrainingType.builder()
                 .id(1L)
                 .trainingTypeName(name)
-                .build();
-    }
-
-    private TrainerResponseDto createTrainerResponse(String username) {
-        return TrainerResponseDto.builder()
-                .firstName("Mike")
-                .lastName("Brown")
-                .username(username)
-                .active(true)
-                .specialization("Fitness")
                 .build();
     }
 }

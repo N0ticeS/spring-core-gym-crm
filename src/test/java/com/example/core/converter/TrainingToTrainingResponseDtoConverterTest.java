@@ -1,8 +1,6 @@
-package com.example.core.mapper;
+package com.example.core.converter;
 
-import com.example.core.dto.training.CreateTrainingRequestDto;
 import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.mapper.impl.TrainingMapperImpl;
 import com.example.core.model.*;
 import org.junit.jupiter.api.Test;
 
@@ -11,42 +9,13 @@ import java.time.LocalDate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class TrainingMapperImplTest {
+class TrainingToTrainingResponseDtoConverterTest {
 
-    private final TrainingMapperImpl trainingMapper = new TrainingMapperImpl();
-
-    @Test
-    void shouldMapCreateRequestToEntity() {
-        CreateTrainingRequestDto request = new CreateTrainingRequestDto();
-        request.setTrainingName("Morning Fitness");
-        request.setTrainingDate(LocalDate.of(2026, 7, 10));
-        request.setTrainingDuration(60);
-
-        Training training = trainingMapper.toEntity(request);
-
-        assertNotNull(training, "Mapped training should not be null");
-
-        assertEquals(
-                request.getTrainingName(),
-                training.getTrainingName(),
-                "Training name should be mapped correctly"
-        );
-
-        assertEquals(
-                request.getTrainingDate(),
-                training.getTrainingDate(),
-                "Training date should be mapped correctly"
-        );
-
-        assertEquals(
-                request.getTrainingDuration(),
-                training.getTrainingDuration(),
-                "Training duration should be mapped correctly"
-        );
-    }
+    private final TrainingToTrainingResponseDtoConverter converter =
+            new TrainingToTrainingResponseDtoConverter();
 
     @Test
-    void shouldMapEntityToResponseDto() {
+    void shouldConvertEntityToResponseDto() {
         User traineeUser = User.builder()
                 .firstName("John")
                 .lastName("Smith")
@@ -80,50 +49,50 @@ class TrainingMapperImplTest {
                 .trainer(trainer)
                 .build();
 
-        TrainingResponseDto response = trainingMapper.toResponseDto(training);
+        TrainingResponseDto response = converter.convert(training);
 
-        assertNotNull(response, "Mapped response should not be null");
+        assertNotNull(response, "Converted response should not be null");
 
         assertEquals(
                 "Morning Fitness",
                 response.getTrainingName(),
-                "Training name should be mapped correctly"
+                "Training name should be converted correctly"
         );
 
         assertEquals(
                 LocalDate.of(2026, 7, 10),
                 response.getTrainingDate(),
-                "Training date should be mapped correctly"
+                "Training date should be converted correctly"
         );
 
         assertEquals(
                 60,
                 response.getTrainingDuration(),
-                "Training duration should be mapped correctly"
+                "Training duration should be converted correctly"
         );
 
         assertEquals(
                 "Fitness",
                 response.getTrainingType(),
-                "Training type should be mapped correctly"
+                "Training type should be converted correctly"
         );
 
         assertEquals(
                 "John.Smith",
                 response.getTraineeUsername(),
-                "Trainee username should be mapped correctly"
+                "Trainee username should be converted correctly"
         );
 
         assertEquals(
                 "Mike.Johnson",
                 response.getTrainerUsername(),
-                "Trainer username should be mapped correctly"
+                "Trainer username should be converted correctly"
         );
 
         assertEquals(
                 "Mike Johnson",
                 response.getTrainerName(),
-                "Trainer full name should be mapped correctly"
+                "Trainer full name should be converted correctly"
         );
     }
 }

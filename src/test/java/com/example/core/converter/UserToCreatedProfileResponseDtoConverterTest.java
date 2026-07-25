@@ -1,19 +1,19 @@
-package com.example.core.mapper;
+package com.example.core.converter;
 
 import com.example.core.dto.auth.CreatedProfileResponseDto;
-import com.example.core.mapper.impl.AuthMapperImpl;
 import com.example.core.model.User;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class AuthMapperImplTest {
+class UserToCreatedProfileResponseDtoConverterTest {
 
-    private final AuthMapperImpl authMapper = new AuthMapperImpl();
+    private final UserToCreatedProfileResponseDtoConverter converter =
+            new UserToCreatedProfileResponseDtoConverter();
 
     @Test
-    void shouldMapUserToCreatedProfileResponseDto() {
+    void shouldConvertUserToCreatedProfileResponseDto() {
         User user = User.builder()
                 .firstName("John")
                 .lastName("Smith")
@@ -22,7 +22,7 @@ class AuthMapperImplTest {
                 .isActive(true)
                 .build();
 
-        CreatedProfileResponseDto result = authMapper.toCreateProfileResponseDto(user);
+        CreatedProfileResponseDto result = converter.convert(user);
 
         assertNotNull(result, "Mapped DTO should not be null");
 

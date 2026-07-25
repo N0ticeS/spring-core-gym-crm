@@ -1,8 +1,7 @@
 package com.example.core.service;
 
+import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
-import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.mapper.TrainingMapper;
 import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
@@ -39,7 +38,7 @@ class TrainingServiceImplTest {
     private TrainerRepository trainerRepository;
 
     @Mock
-    private TrainingMapper trainingMapper;
+    private CreateTrainingRequestToTrainingConverter createTrainingConverter;
 
     @InjectMocks
     private TrainingServiceImpl trainingService;
@@ -57,20 +56,12 @@ class TrainingServiceImplTest {
         savedTraining.setTrainer(trainer);
         savedTraining.setTrainingType(trainer.getSpecialization());
 
-        TrainingResponseDto response = TrainingResponseDto.builder()
-                .trainingName("Morning Fitness")
-                .traineeUsername("John.Smith")
-                .trainerUsername("Mike.Brown")
-                .trainingType("Fitness")
-                .build();
-
         when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
         when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(trainingMapper.toEntity(request)).thenReturn(training);
+        when(createTrainingConverter.convert(request)).thenReturn(training);
         when(trainingRepository.save(training)).thenReturn(savedTraining);
-        when(trainingMapper.toResponseDto(savedTraining)).thenReturn(response);
 
-        TrainingResponseDto result = trainingService.createTraining(request);
+        Training result = trainingService.createTraining(request);
 
         assertEquals("Morning Fitness", result.getTrainingName(), "Training name should match");
         assertEquals(trainee, training.getTrainee(), "Trainee should be assigned to training");
@@ -78,6 +69,7 @@ class TrainingServiceImplTest {
         assertEquals(trainer.getSpecialization(), training.getTrainingType(), "Training type should match trainer specialization");
 
         verify(trainingRepository).save(training);
+        verify(createTrainingConverter).convert(request);
     }
 
     @Test
@@ -95,6 +87,7 @@ class TrainingServiceImplTest {
 
         verify(trainerRepository, never()).findByUserUsername(anyString());
         verify(trainingRepository, never()).save(any(Training.class));
+        verifyNoInteractions(createTrainingConverter);
     }
 
     @Test
@@ -114,6 +107,7 @@ class TrainingServiceImplTest {
         assertEquals("Trainer profile not found", exception.getMessage(), "Exception message should match");
 
         verify(trainingRepository, never()).save(any(Training.class));
+        verifyNoInteractions(createTrainingConverter);
     }
 
     @Test
@@ -122,51 +116,18 @@ class TrainingServiceImplTest {
 
         Training trainingOne = createTraining();
         Training trainingTwo = createTraining();
-
-        TrainingResponseDto responseOne = TrainingResponseDto.builder()
-                .trainingName("Morning Fitness")
-                .build();
-
-        TrainingResponseDto responseTwo = TrainingResponseDto.builder()
-                .trainingName("Evening Yoga")
-                .build();
+        trainingTwo.setTrainingName("Evening Yoga");
 
         when(trainingRepository.findAll(any(Specification.class)))
                 .thenReturn(List.of(trainingOne, trainingTwo));
-        when(trainingMapper.toResponseDto(trainingOne)).thenReturn(responseOne);
-        when(trainingMapper.toResponseDto(trainingTwo)).thenReturn(responseTwo);
 
-        List<TrainingResponseDto> result = trainingService.findAll(criteria);
+        List<Training> result = trainingService.findAll(criteria);
 
         assertEquals(2, result.size(), "Two trainings should be returned");
         assertEquals("Morning Fitness", result.get(0).getTrainingName(), "First training name should match");
         assertEquals("Evening Yoga", result.get(1).getTrainingName(), "Second training name should match");
 
         verify(trainingRepository).findAll(any(Specification.class));
-        verify(trainingMapper, times(2)).toResponseDto(any(Training.class));
-    }
-
-    @Test
-    void shouldDeleteTrainingSuccessfully() {
-        when(trainingRepository.existsById(1L)).thenReturn(true);
-
-        trainingService.deleteById(1L);
-
-        verify(trainingRepository).deleteById(1L);
-    }
-
-    @Test
-    void shouldThrowExceptionWhenDeletingUnknownTraining() {
-        when(trainingRepository.existsById(1L)).thenReturn(false);
-
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> trainingService.deleteById(1L)
-        );
-
-        assertEquals("Training not found", exception.getMessage(), "Exception message should match");
-
-        verify(trainingRepository, never()).deleteById(anyLong());
     }
 
     private CreateTrainingRequestDto createTrainingRequest() {

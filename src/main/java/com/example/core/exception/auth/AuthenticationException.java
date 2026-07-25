@@ -1,4 +1,4 @@
-package com.example.core.exception;
+package com.example.core.exception.auth;
 
 public class AuthenticationException extends RuntimeException {
     public AuthenticationException(String message) {

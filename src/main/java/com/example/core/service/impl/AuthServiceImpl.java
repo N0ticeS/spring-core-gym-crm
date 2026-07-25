@@ -1,9 +1,11 @@
 package com.example.core.service.impl;
 
+import com.example.core.dto.auth.ChangePasswordRequestDto;
 import com.example.core.dto.auth.LoginRequestDto;
-import com.example.core.exception.AuthenticationException;
+import com.example.core.exception.auth.AuthenticationException;
 import com.example.core.repository.UserRepository;
 import com.example.core.service.AuthService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,5 +44,34 @@ public class AuthServiceImpl implements AuthService {
         if (!authenticate(request)) {
             throw new AuthenticationException("Invalid username or password");
         }
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(
+            String username,
+            ChangePasswordRequestDto request) {
+
+        log.debug("Changing password for username {}", username);
+
+        var loginRequest = LoginRequestDto.builder()
+                .username(username)
+                .password(request.getOldPassword())
+                .build();
+
+        validateAuthentication(loginRequest);
+
+        var user = userRepository.findByUsername(username)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "User with username " + username + " not found"
+                        )
+                );
+
+        user.setPassword(request.getPassword());
+
+        userRepository.save(user);
+
+        log.info("Password changed successfully for username {}", username);
     }
 }

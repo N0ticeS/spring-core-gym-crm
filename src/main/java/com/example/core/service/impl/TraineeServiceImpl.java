@@ -1,24 +1,15 @@
 package com.example.core.service.impl;
 
-import com.example.core.dto.auth.ChangePasswordRequestDto;
-import com.example.core.dto.auth.CreatedProfileResponseDto;
+import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
-import com.example.core.dto.trainee.TraineeResponseDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
-import com.example.core.dto.trainer.TrainerResponseDto;
-import com.example.core.dto.training.TrainingResponseDto;
-import com.example.core.exception.AuthenticationException;
-import com.example.core.mapper.AuthMapper;
-import com.example.core.mapper.TraineeMapper;
-import com.example.core.mapper.TrainerMapper;
-import com.example.core.mapper.TrainingMapper;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
+import com.example.core.model.Training;
 import com.example.core.model.User;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
 import com.example.core.repository.TrainingRepository;
-import com.example.core.repository.UserRepository;
 import com.example.core.service.TraineeService;
 import com.example.core.service.util.PasswordGenerator;
 import com.example.core.service.util.UsernameGenerator;
@@ -42,21 +33,14 @@ public class TraineeServiceImpl implements TraineeService {
     private final TraineeRepository traineeRepository;
     private final TrainerRepository trainerRepository;
     private final TrainingRepository trainingRepository;
-    private final UserRepository userRepository;
-
-    private final TrainerMapper trainerMapper;
-    private final TraineeMapper traineeMapper;
-    private final TrainingMapper trainingMapper;
-    private final AuthMapper authMapper;
-
+    private final CreateTraineeRequestToTraineeConverter createTraineeConverter;
     private final UsernameGenerator usernameGenerator;
 
     @Override
     @Transactional
-    public CreatedProfileResponseDto create(CreateTraineeRequestDto request) {
+    public User create(CreateTraineeRequestDto request) {
         log.debug("Create trainee profile for first name {}, last name {}",
                 request.getFirstName(), request.getLastName());
-
 
         var username = usernameGenerator.generate(request.getFirstName(), request.getLastName());
         var password = PasswordGenerator.generatePassword();
@@ -69,35 +53,39 @@ public class TraineeServiceImpl implements TraineeService {
                 .isActive(true)
                 .build();
 
-        var trainee = traineeMapper.toEntity(request);
+        var trainee = createTraineeConverter.convert(request);
+
+        if (trainee == null) {
+            throw new IllegalStateException("Failed to convert CreateTraineeRequestDto to Trainee");
+        }
+
         trainee.setUser(user);
 
         var savedTrainee = traineeRepository.save(trainee);
 
         log.info("Trainee profile created successfully, username {}", savedTrainee.getUser().getUsername());
 
-        return authMapper.toCreateProfileResponseDto(savedTrainee.getUser());
+        return savedTrainee.getUser();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public TraineeResponseDto findByUsername(String username) {
+    public Trainee findByUsername(String username) {
         log.debug("Searching trainee profile by username {}", username);
 
         var trainee = findTraineeByUsername(username);
 
         log.info("Trainee profile found successfully, username {}", username);
 
-        return traineeMapper.toResponseDto(trainee);
+        return trainee;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<TraineeResponseDto> findAll() {
+    public List<Trainee> findAll() {
         log.debug("Searching trainee profiles");
 
-        var trainees = traineeRepository.findAll()
-                .stream().map(traineeMapper::toResponseDto).toList();
+        var trainees = traineeRepository.findAll();
 
         log.info("Trainee profiles found, count {}", trainees.size());
 
@@ -106,34 +94,26 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
-    public TraineeResponseDto update(String username, UpdateTraineeRequestDto request) {
+    public Trainee update(String username, UpdateTraineeRequestDto request) {
         log.debug("Update trainee profile for username {}", username);
 
         var trainee = findTraineeByUsername(username);
 
-        traineeMapper.updateEntity(request, trainee);
+        trainee.getUser().setFirstName(request.getFirstName());
+        trainee.getUser().setLastName(request.getLastName());
+
+        if (request.getDateOfBirth() != null) {
+            trainee.setDateOfBirth(request.getDateOfBirth());
+        }
+
+        if (request.getAddress() != null) {
+            trainee.setAddress(request.getAddress());
+        }
 
         var updatedTrainee = traineeRepository.save(trainee);
         log.info("Trainee profile updated successfully, username {}", username);
 
-        return traineeMapper.toResponseDto(updatedTrainee);
-    }
-
-    @Override
-    @Transactional
-    public void changePassword(String username, ChangePasswordRequestDto request) {
-        log.debug("Change password for username {}", username);
-
-        var trainee = findTraineeByUsername(username);
-
-        if (!userRepository.existsByUsernameAndPassword(username, request.getOldPassword())) {
-            log.warn("Trainee password change failed due to invalid current password, username {}", username);
-            throw new AuthenticationException("Invalid current password");
-        }
-
-        trainee.getUser().setPassword(request.getPassword());
-        traineeRepository.save(trainee);
-        log.info("Trainee password changed successfully, username {}", username);
+        return updatedTrainee;
     }
 
     @Override
@@ -173,17 +153,13 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TrainingResponseDto> getTrainings(String username, TrainingSearchCriteria criteria) {
+    public List<Training> getTrainings(String username, TrainingSearchCriteria criteria) {
         log.debug("Searching trainee profile for username {}, criteria {}", username, criteria);
 
         findTraineeByUsername(username);
         criteria.setTraineeUsername(username);
 
-        var trainings = trainingRepository
-                .findAll(TrainingSpecification.byCriteria(criteria))
-                .stream()
-                .map(trainingMapper::toResponseDto)
-                .toList();
+        var trainings = trainingRepository.findAll(TrainingSpecification.byCriteria(criteria));
 
         log.info("Trainings found for trainee username {}, count {}", username, trainings.size());
 
@@ -192,15 +168,15 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TrainerResponseDto> getNotAssignedTrainers(String username) {
+    public List<Trainer> getNotAssignedTrainers(String username) {
         log.debug("Searching trainers not assigned to trainee username {}", username);
 
         var trainee = findTraineeByUsername(username);
 
         var trainers = trainerRepository.findAll()
                 .stream()
+                .filter(trainer -> trainer.getUser().isActive())
                 .filter(trainer -> !trainee.getTrainers().contains(trainer))
-                .map(trainerMapper::toResponseDto)
                 .toList();
 
         log.info("Not assigned trainers found for trainee username {}, count {}", username, trainers.size());
@@ -210,7 +186,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
-    public TraineeResponseDto updateTrainers(String username, Set<String> trainerUsernames) {
+    public Trainee updateTrainers(String username, Set<String> trainerUsernames) {
         log.debug("Updating trainers list for username {}, trainers count {}",
                 username, trainerUsernames.size());
 
@@ -227,7 +203,7 @@ public class TraineeServiceImpl implements TraineeService {
         log.info("Trainee trainers list updated successfully, username {}, trainers count {}",
                 username, trainers.size());
 
-        return traineeMapper.toResponseDto(updatedTrainee);
+        return updatedTrainee;
     }
 
     private Trainee findTraineeByUsername(String username) {
