@@ -3,6 +3,7 @@ package com.example.core.service.impl;
 import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
+import com.example.core.metrics.ProfileCreationMetrics;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
@@ -35,6 +36,7 @@ public class TraineeServiceImpl implements TraineeService {
     private final TrainingRepository trainingRepository;
     private final CreateTraineeRequestToTraineeConverter createTraineeConverter;
     private final UsernameGenerator usernameGenerator;
+    private final ProfileCreationMetrics profileCreationMetrics;
 
     @Override
     @Transactional
@@ -62,6 +64,8 @@ public class TraineeServiceImpl implements TraineeService {
         trainee.setUser(user);
 
         var savedTrainee = traineeRepository.save(trainee);
+
+        profileCreationMetrics.recordTraineeCreated();
 
         log.info("Trainee profile created successfully, username {}", savedTrainee.getUser().getUsername());
 

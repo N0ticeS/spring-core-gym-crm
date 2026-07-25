@@ -3,6 +3,7 @@ package com.example.core.service;
 import com.example.core.dto.auth.ChangePasswordRequestDto;
 import com.example.core.dto.auth.LoginRequestDto;
 import com.example.core.exception.auth.AuthenticationException;
+import com.example.core.metrics.AuthenticationMetrics;
 import com.example.core.model.User;
 import com.example.core.repository.UserRepository;
 import com.example.core.service.impl.AuthServiceImpl;
@@ -24,6 +25,9 @@ class AuthServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthenticationMetrics authenticationMetrics;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -47,6 +51,8 @@ class AuthServiceImplTest {
         verify(userRepository).existsByUsernameAndPassword(
                 request.getUsername(),
                 request.getPassword());
+
+        verify(authenticationMetrics).successfulAttempts();
     }
 
     @Test
@@ -68,6 +74,8 @@ class AuthServiceImplTest {
         verify(userRepository).existsByUsernameAndPassword(
                 request.getUsername(),
                 request.getPassword());
+
+        verify(authenticationMetrics).failedAttempts();
     }
 
     @Test

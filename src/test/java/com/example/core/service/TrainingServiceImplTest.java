@@ -2,6 +2,7 @@ package com.example.core.service;
 
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
@@ -40,6 +41,9 @@ class TrainingServiceImplTest {
     @Mock
     private CreateTrainingRequestToTrainingConverter createTrainingConverter;
 
+    @Mock
+    private TrainingCreationMetrics trainingCreationMetrics;
+
     @InjectMocks
     private TrainingServiceImpl trainingService;
 
@@ -70,6 +74,7 @@ class TrainingServiceImplTest {
 
         verify(trainingRepository).save(training);
         verify(createTrainingConverter).convert(request);
+        verify(trainingCreationMetrics).increment();
     }
 
     @Test

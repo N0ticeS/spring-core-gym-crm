@@ -3,6 +3,7 @@ package com.example.core.service;
 import com.example.core.dto.auth.ChangePasswordRequestDto;
 import com.example.core.dto.trainer.CreateTrainerRequestDto;
 import com.example.core.dto.trainer.UpdateTrainerRequestDto;
+import com.example.core.metrics.ProfileCreationMetrics;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
 import com.example.core.model.TrainingType;
@@ -37,9 +38,10 @@ class TrainerServiceImplTest {
     private TrainingRepository trainingRepository;
     @Mock
     private TrainingTypeRepository trainingTypeRepository;
-
     @Mock
     private UsernameGenerator usernameGenerator;
+    @Mock
+    private ProfileCreationMetrics profileCreationMetrics;
 
     @InjectMocks
     private TrainerServiceImpl trainerService;
@@ -60,6 +62,7 @@ class TrainerServiceImplTest {
         assertEquals("Mike.Brown", result.getUsername(), "Username should match generated username");
 
         verify(trainerRepository).save(any(Trainer.class));
+        verify(profileCreationMetrics).recordTrainerCreated();
     }
 
     @Test
