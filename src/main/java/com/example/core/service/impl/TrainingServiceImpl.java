@@ -2,6 +2,7 @@ package com.example.core.service.impl;
 
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
@@ -29,6 +30,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TraineeRepository traineeRepository;
     private final TrainerRepository trainerRepository;
     private final CreateTrainingRequestToTrainingConverter createTrainingConverter;
+    private final TrainingCreationMetrics trainingCreationMetrics;
 
     @Override
     @Transactional
@@ -49,6 +51,8 @@ public class TrainingServiceImpl implements TrainingService {
         training.setTrainingType(trainer.getSpecialization());
 
         var savedTraining = trainingRepository.save(training);
+
+        trainingCreationMetrics.increment();
 
         log.info("Training created successfully, id {}, trainee username {}, trainer username {}",
                 savedTraining.getId(),

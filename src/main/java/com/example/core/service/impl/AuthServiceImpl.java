@@ -3,6 +3,7 @@ package com.example.core.service.impl;
 import com.example.core.dto.auth.ChangePasswordRequestDto;
 import com.example.core.dto.auth.LoginRequestDto;
 import com.example.core.exception.auth.AuthenticationException;
+import com.example.core.metrics.AuthenticationMetrics;
 import com.example.core.repository.UserRepository;
 import com.example.core.service.AuthService;
 import jakarta.persistence.EntityNotFoundException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final AuthenticationMetrics authenticationMetrics;
 
     @Override
     @Transactional(readOnly = true)
@@ -29,8 +31,10 @@ public class AuthServiceImpl implements AuthService {
 
         if (authenticated) {
             log.info("Authentication successful for username {}", request.getUsername());
+            authenticationMetrics.successfulAttempts();
         } else {
             log.warn("Authentication failed for username {}", request.getUsername());
+            authenticationMetrics.failedAttempts();
         }
 
         return authenticated;

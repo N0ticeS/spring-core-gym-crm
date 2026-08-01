@@ -3,6 +3,7 @@ package com.example.core.service;
 import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
+import com.example.core.metrics.ProfileCreationMetrics;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
@@ -49,6 +50,9 @@ class TraineeServiceImplTest {
     @Mock
     private UsernameGenerator usernameGenerator;
 
+    @Mock
+    private ProfileCreationMetrics profileCreationMetrics;
+
     @InjectMocks
     private TraineeServiceImpl traineeService;
 
@@ -68,6 +72,7 @@ class TraineeServiceImplTest {
         assertEquals("John.Smith", trainee.getUser().getUsername(), "User should be set to trainee");
 
         verify(traineeRepository).save(trainee);
+        verify(profileCreationMetrics).recordTraineeCreated();
     }
 
     @Test
