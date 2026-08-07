@@ -2,7 +2,6 @@ package com.example.core.controller;
 
 import com.example.core.converter.TrainerToTrainerResponseDtoConverter;
 import com.example.core.converter.TrainingToTrainerResponseDtoConverter;
-import com.example.core.converter.UserToCreatedProfileResponseDtoConverter;
 import com.example.core.dto.auth.ChangeStatusRequestDto;
 import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.error.ErrorResponseDto;
@@ -17,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +40,6 @@ public class TrainerController {
 
     private final TrainerToTrainerResponseDtoConverter trainerResponseConverter;
     private final TrainingToTrainerResponseDtoConverter trainingToTrainerConverter;
-    private final UserToCreatedProfileResponseDtoConverter userToCreatedProfileResponseDtoConverter;
 
 
     @Operation(
@@ -66,16 +65,15 @@ public class TrainerController {
     public ResponseEntity<CreatedProfileResponseDto> create(
             @Valid @RequestBody CreateTrainerRequestDto request) {
 
-        var trainer = trainerService.create(request);
-
-        var response = userToCreatedProfileResponseDtoConverter.convert(trainer);
+        var response = trainerService.create(request);
 
         return ResponseEntity.ok(response);
     }
 
     @Operation(
             summary = "Get trainer profile",
-            description = "Returns trainer profile by username"
+            description = "Returns trainer profile by username",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainer profile found"),
@@ -98,7 +96,8 @@ public class TrainerController {
 
     @Operation(
             summary = "Get all trainer profiles",
-            description = "Returns all trainer profiles"
+            description = "Returns all trainer profiles",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponse(responseCode = "200", description = "Trainer profiles retrieved successfully")
     @GetMapping
@@ -114,7 +113,8 @@ public class TrainerController {
 
     @Operation(
             summary = "Update trainer profile",
-            description = "Updates trainer profile by username"
+            description = "Updates trainer profile by username",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainer profile updated successfully"),
@@ -145,7 +145,8 @@ public class TrainerController {
 
     @Operation(
             summary = "Change trainer status",
-            description = "Activates or deactivates trainer profile"
+            description = "Activates or deactivates trainer profile",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainer status changed successfully"),
@@ -180,7 +181,8 @@ public class TrainerController {
 
     @Operation(
             summary = "Get trainer trainings",
-            description = "Returns trainer trainings filtered by optional search criteria"
+            description = "Returns trainer trainings filtered by optional search criteria",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainer trainings retrieved successfully"),

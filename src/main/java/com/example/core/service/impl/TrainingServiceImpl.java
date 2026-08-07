@@ -15,6 +15,7 @@ import com.example.core.specification.TrainingSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class TrainingServiceImpl implements TrainingService {
 
     @Override
     @Transactional
+    @PreAuthorize("#request.trainerUsername == authentication.name or hasRole('ADMIN')")
     public Training createTraining(CreateTrainingRequestDto request) {
         log.debug("Creating training request, trainee username {}, trainer username {}",
                 request.getTraineeUsername(), request.getTrainerUsername());
@@ -64,6 +66,7 @@ public class TrainingServiceImpl implements TrainingService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('ADMIN')")
     public List<Training> findAll(TrainingSearchCriteria criteria) {
         log.debug("Searching trainings with criteria {}", criteria);
 

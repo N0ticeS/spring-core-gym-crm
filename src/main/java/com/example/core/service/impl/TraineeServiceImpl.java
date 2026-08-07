@@ -1,13 +1,11 @@
 package com.example.core.service.impl;
 
 import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
+import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
 import com.example.core.metrics.ProfileCreationMetrics;
-import com.example.core.model.Trainee;
-import com.example.core.model.Trainer;
-import com.example.core.model.Training;
-import com.example.core.model.User;
+import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
 import com.example.core.repository.TrainingRepository;
@@ -19,6 +17,8 @@ import com.example.core.specification.TrainingSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,22 +37,28 @@ public class TraineeServiceImpl implements TraineeService {
     private final CreateTraineeRequestToTraineeConverter createTraineeConverter;
     private final UsernameGenerator usernameGenerator;
     private final ProfileCreationMetrics profileCreationMetrics;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
-    public User create(CreateTraineeRequestDto request) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public CreatedProfileResponseDto create(CreateTraineeRequestDto request) {
         log.debug("Create trainee profile for first name {}, last name {}",
                 request.getFirstName(), request.getLastName());
 
         var username = usernameGenerator.generate(request.getFirstName(), request.getLastName());
         var password = PasswordGenerator.generatePassword();
+        var encodedPassword = passwordEncoder.encode(password);
 
         var user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .username(username)
-                .password(password)
+                .password(encodedPassword)
+                .role(Role.TRAINEE)
                 .isActive(true)
+                .failedLoginAttempts(0)
+                .lockedUntil(null)
                 .build();
 
         var trainee = createTraineeConverter.convert(request);
@@ -69,11 +75,15 @@ public class TraineeServiceImpl implements TraineeService {
 
         log.info("Trainee profile created successfully, username {}", savedTrainee.getUser().getUsername());
 
-        return savedTrainee.getUser();
+        return CreatedProfileResponseDto.builder()
+                .username(username)
+                .password(password)
+                .build();
     }
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
     public Trainee findByUsername(String username) {
         log.debug("Searching trainee profile by username {}", username);
 
@@ -86,6 +96,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasAnyRole('TRAINER', 'ADMIN')")
     public List<Trainee> findAll() {
         log.debug("Searching trainee profiles");
 
@@ -98,6 +109,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     public Trainee update(String username, UpdateTraineeRequestDto request) {
         log.debug("Update trainee profile for username {}", username);
 
@@ -122,6 +134,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     public void changeStatus(String username, boolean active) {
         log.debug("Changing trainee status, username {}, active {}",
                 username, active);
@@ -144,6 +157,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteByUsername(String username) {
         log.debug("Delete trainee profile for username {}", username);
 
@@ -157,6 +171,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     public List<Training> getTrainings(String username, TrainingSearchCriteria criteria) {
         log.debug("Searching trainee profile for username {}, criteria {}", username, criteria);
 
@@ -172,6 +187,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     public List<Trainer> getNotAssignedTrainers(String username) {
         log.debug("Searching trainers not assigned to trainee username {}", username);
 
@@ -190,6 +206,7 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
+    @PreAuthorize("#username == authentication.name or hasRole('ADMIN')")
     public Trainee updateTrainers(String username, Set<String> trainerUsernames) {
         log.debug("Updating trainers list for username {}, trainers count {}",
                 username, trainerUsernames.size());

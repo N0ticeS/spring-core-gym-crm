@@ -21,6 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +43,8 @@ class TrainerServiceImplTest {
     private UsernameGenerator usernameGenerator;
     @Mock
     private ProfileCreationMetrics profileCreationMetrics;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private TrainerServiceImpl trainerService;
@@ -56,11 +59,14 @@ class TrainerServiceImplTest {
                 .thenReturn(Optional.of(specialization));
         when(usernameGenerator.generate("Mike", "Brown")).thenReturn("Mike.Brown");
         when(trainerRepository.save(any(Trainer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
 
-        User result = trainerService.create(request);
+        var result = trainerService.create(request);
 
         assertEquals("Mike.Brown", result.getUsername(), "Username should match generated username");
+        assertNotNull(result.getPassword(), "Generated password should be returned");
 
+        verify(passwordEncoder).encode(anyString());
         verify(trainerRepository).save(any(Trainer.class));
         verify(profileCreationMetrics).recordTrainerCreated();
     }

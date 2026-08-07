@@ -1,6 +1,6 @@
 package com.example.core.exception;
 
-import com.example.core.exception.auth.AuthenticationException;
+import com.example.core.exception.auth.InvalidCredentialsException;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,7 +79,7 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/test/authentication")
         void throwAuthenticationException() {
-            throw new AuthenticationException("Invalid username or password");
+            throw new InvalidCredentialsException("Invalid username or password");
         }
 
         @GetMapping("/test/conflict")

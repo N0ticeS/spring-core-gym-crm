@@ -1,17 +1,17 @@
 package com.example.core.service;
 
+import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.trainer.CreateTrainerRequestDto;
 import com.example.core.dto.trainer.UpdateTrainerRequestDto;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
-import com.example.core.model.User;
 import com.example.core.specification.TrainingSearchCriteria;
 
 import java.util.List;
 
 public interface TrainerService {
 
-    User create(CreateTrainerRequestDto request);
+    CreatedProfileResponseDto create(CreateTrainerRequestDto request);
 
     Trainer findByUsername(String username);
 
