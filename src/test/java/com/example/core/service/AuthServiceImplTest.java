@@ -2,10 +2,11 @@ package com.example.core.service;
 
 import com.example.core.dto.auth.ChangePasswordRequestDto;
 import com.example.core.dto.auth.LoginRequestDto;
-import com.example.core.exception.auth.AuthenticationException;
+import com.example.core.exception.auth.InvalidCredentialsException;
 import com.example.core.metrics.AuthenticationMetrics;
 import com.example.core.model.User;
 import com.example.core.repository.UserRepository;
+import com.example.core.security.bruteforce.LoginAttemptsService;
 import com.example.core.service.impl.AuthServiceImpl;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -13,12 +14,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
@@ -29,205 +34,215 @@ class AuthServiceImplTest {
     @Mock
     private AuthenticationMetrics authenticationMetrics;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuthenticationManager authenticationManager;
+
+    @Mock
+    private LoginAttemptsService loginAttemptsService;
+
+    @Mock
+    private Authentication authentication;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
     @Test
     void shouldAuthenticateUserSuccessfully() {
-        LoginRequestDto request = LoginRequestDto.builder()
+        var request = LoginRequestDto.builder()
                 .username("John.Smith")
                 .password("password123")
                 .build();
 
-        when(userRepository.existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword()))
-                .thenReturn(true);
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(authentication);
 
-        boolean result = authService.authenticate(request);
+        var result = authService.authenticate(request);
 
-        assertTrue(result, "User should be authenticated");
+        assertSame(authentication, result);
 
-        verify(userRepository).existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword());
+        verify(loginAttemptsService)
+                .checkBlocked("John.Smith");
 
-        verify(authenticationMetrics).successfulAttempts();
+        verify(authenticationManager)
+                .authenticate(any());
+
+        verify(loginAttemptsService)
+                .loginSucceeded("John.Smith");
+
+        verify(authenticationMetrics)
+                .successfulAttempts();
+
+        verify(loginAttemptsService, never())
+                .loginFailed(anyString());
+
+        verify(authenticationMetrics, never())
+                .failedAttempts();
     }
 
     @Test
-    void shouldReturnFalseWhenCredentialsAreInvalid() {
-        LoginRequestDto request = LoginRequestDto.builder()
+    void shouldThrowInvalidCredentialsExceptionWhenAuthenticationFails() {
+        var request = LoginRequestDto.builder()
                 .username("John.Smith")
                 .password("wrongPassword")
                 .build();
 
-        when(userRepository.existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword()))
-                .thenReturn(false);
+        when(authenticationManager.authenticate(any()))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
 
-        boolean result = authService.authenticate(request);
-
-        assertFalse(result, "Authentication should fail");
-
-        verify(userRepository).existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword());
-
-        verify(authenticationMetrics).failedAttempts();
-    }
-
-    @Test
-    void shouldValidateAuthenticationSuccessfully() {
-        LoginRequestDto request = LoginRequestDto.builder()
-                .username("John.Smith")
-                .password("password123")
-                .build();
-
-        when(userRepository.existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword()))
-                .thenReturn(true);
-
-        assertDoesNotThrow(() -> authService.validateAuthentication(request));
-
-        verify(userRepository).existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword());
-    }
-
-    @Test
-    void shouldThrowAuthenticationExceptionWhenCredentialsAreInvalid() {
-        LoginRequestDto request = LoginRequestDto.builder()
-                .username("John.Smith")
-                .password("wrongPassword")
-                .build();
-
-        when(userRepository.existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword()))
-                .thenReturn(false);
-
-        AuthenticationException exception = assertThrows(
-                AuthenticationException.class,
-                () -> authService.validateAuthentication(request)
+        var exception = assertThrows(
+                InvalidCredentialsException.class,
+                () -> authService.authenticate(request)
         );
 
         assertEquals(
                 "Invalid username or password",
-                exception.getMessage(),
-                "Exception message should match expected value"
+                exception.getMessage()
         );
 
-        verify(userRepository).existsByUsernameAndPassword(
-                request.getUsername(),
-                request.getPassword());
+        verify(loginAttemptsService)
+                .checkBlocked("John.Smith");
+
+        verify(loginAttemptsService)
+                .loginFailed("John.Smith");
+
+        verify(authenticationMetrics)
+                .failedAttempts();
+
+        verify(loginAttemptsService, never())
+                .loginSucceeded(anyString());
+
+        verify(authenticationMetrics, never())
+                .successfulAttempts();
     }
 
     @Test
     void shouldChangePasswordSuccessfully() {
-        String username = "John.Smith";
+        var username = "John.Smith";
 
-        ChangePasswordRequestDto request = ChangePasswordRequestDto.builder()
+        var request = ChangePasswordRequestDto.builder()
                 .oldPassword("password123")
                 .password("newPassword123")
                 .confirmPassword("newPassword123")
                 .build();
 
-        User user = User.builder()
+        var user = User.builder()
                 .username(username)
-                .password("password123")
+                .password("encodedOldPassword")
                 .build();
 
-        when(userRepository.existsByUsernameAndPassword(
-                username,
-                request.getOldPassword()))
-                .thenReturn(true);
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(authentication);
 
         when(userRepository.findByUsername(username))
                 .thenReturn(Optional.of(user));
 
+        when(passwordEncoder.encode("newPassword123"))
+                .thenReturn("encodedNewPassword");
+
         authService.changePassword(username, request);
 
         assertEquals(
-                request.getPassword(),
-                user.getPassword(),
-                "Password should be updated"
+                "encodedNewPassword",
+                user.getPassword()
         );
 
-        verify(userRepository).existsByUsernameAndPassword(
-                username,
-                request.getOldPassword());
+        verify(loginAttemptsService).checkBlocked(username);
+
+        verify(authenticationManager).authenticate(any());
+
+        verify(loginAttemptsService).loginSucceeded(username);
 
         verify(userRepository).findByUsername(username);
+
+        verify(passwordEncoder).encode("newPassword123");
+
         verify(userRepository).save(user);
     }
 
     @Test
-    void shouldThrowAuthenticationExceptionWhenOldPasswordIsInvalid() {
-        String username = "John.Smith";
+    void shouldThrowInvalidCredentialsExceptionWhenOldPasswordIsInvalid() {
+        var username = "John.Smith";
 
-        ChangePasswordRequestDto request = ChangePasswordRequestDto.builder()
+        var request = ChangePasswordRequestDto.builder()
                 .oldPassword("wrongPassword")
                 .password("newPassword123")
                 .confirmPassword("newPassword123")
                 .build();
 
-        when(userRepository.existsByUsernameAndPassword(
-                username,
-                request.getOldPassword()))
-                .thenReturn(false);
+        when(authenticationManager.authenticate(any()))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
 
-        AuthenticationException exception = assertThrows(
-                AuthenticationException.class,
+        var exception = assertThrows(
+                InvalidCredentialsException.class,
                 () -> authService.changePassword(username, request)
         );
 
         assertEquals(
                 "Invalid username or password",
-                exception.getMessage(),
-                "Exception message should match expected value"
+                exception.getMessage()
         );
 
-        verify(userRepository).existsByUsernameAndPassword(
-                username,
-                request.getOldPassword());
+        verify(loginAttemptsService)
+                .checkBlocked(username);
+
+        verify(loginAttemptsService)
+                .loginFailed(username);
+
+        verify(userRepository, never())
+                .findByUsername(anyString());
+
+        verify(passwordEncoder, never())
+                .encode(anyString());
+
+        verify(userRepository, never())
+                .save(any());
     }
 
     @Test
     void shouldThrowEntityNotFoundExceptionWhenUserDoesNotExist() {
-        String username = "John.Smith";
+        var username = "John.Smith";
 
-        ChangePasswordRequestDto request = ChangePasswordRequestDto.builder()
+        var request = ChangePasswordRequestDto.builder()
                 .oldPassword("password123")
                 .password("newPassword123")
                 .confirmPassword("newPassword123")
                 .build();
 
-        when(userRepository.existsByUsernameAndPassword(
-                username,
-                request.getOldPassword()))
-                .thenReturn(true);
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(authentication);
 
         when(userRepository.findByUsername(username))
                 .thenReturn(Optional.empty());
 
-        EntityNotFoundException exception = assertThrows(
+        var exception = assertThrows(
                 EntityNotFoundException.class,
                 () -> authService.changePassword(username, request)
         );
 
         assertEquals(
                 "User with username John.Smith not found",
-                exception.getMessage(),
-                "Exception message should match expected value"
+                exception.getMessage()
         );
 
-        verify(userRepository).existsByUsernameAndPassword(
-                username,
-                request.getOldPassword());
+        verify(loginAttemptsService)
+                .checkBlocked(username);
 
-        verify(userRepository).findByUsername(username);
+        verify(authenticationManager)
+                .authenticate(any());
+
+        verify(loginAttemptsService)
+                .loginSucceeded(username);
+
+        verify(userRepository)
+                .findByUsername(username);
+
+        verify(passwordEncoder, never())
+                .encode(anyString());
+
+        verify(userRepository, never())
+                .save(any());
     }
 }

@@ -1,5 +1,6 @@
 package com.example.core.controller;
 
+import com.example.core.converter.JwtToLoginResponseDtoConverter;
 import com.example.core.converter.TrainerToTrainerResponseDtoConverter;
 import com.example.core.converter.TrainingToTrainerResponseDtoConverter;
 import com.example.core.converter.UserToCreatedProfileResponseDtoConverter;
@@ -10,11 +11,15 @@ import com.example.core.model.Trainer;
 import com.example.core.model.Training;
 import com.example.core.model.TrainingType;
 import com.example.core.model.User;
+import com.example.core.security.jwt.JwtAuthenticationFilter;
 import com.example.core.service.TrainerService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,7 +33,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(TrainerController.class)
+@WebMvcTest(controllers = TrainerController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {
+                        JwtAuthenticationFilter.class,
+                        JwtToLoginResponseDtoConverter.class
+                }
+        ))
+@AutoConfigureMockMvc(addFilters = false)
 class TrainerControllerTest {
 
     @Autowired
@@ -59,7 +72,7 @@ class TrainerControllerTest {
                 .build();
 
         when(trainerService.create(any()))
-                .thenReturn(user);
+                .thenReturn(response);
 
         when(createdProfileResponseConverter.convert(user))
                 .thenReturn(response);
@@ -78,7 +91,6 @@ class TrainerControllerTest {
                 .andExpect(jsonPath("$.password").value("password123"));
 
         verify(trainerService).create(any());
-        verify(createdProfileResponseConverter).convert(user);
     }
 
     @Test

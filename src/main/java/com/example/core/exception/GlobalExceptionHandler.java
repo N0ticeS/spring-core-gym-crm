@@ -1,7 +1,8 @@
 package com.example.core.exception;
 
 import com.example.core.dto.error.ErrorResponseDto;
-import com.example.core.exception.auth.AuthenticationException;
+import com.example.core.exception.auth.AccountTemporarilyLockedException;
+import com.example.core.exception.auth.InvalidCredentialsException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,9 +32,9 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(exception.getMessage(), HttpStatus.NOT_FOUND, request);
     }
 
-    @ExceptionHandler(AuthenticationException.class)
+    @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponseDto> handleAuthenticationException(
-            AuthenticationException exception,
+            InvalidCredentialsException exception,
             HttpServletRequest request) {
 
         log.warn("Authentication failed: {}", exception.getMessage());
@@ -125,5 +127,46 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(status)
                 .body(response);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccessDenied(
+            AccessDeniedException exception,
+            HttpServletRequest request) {
+
+        log.warn(
+                "Access denied for path {}: {}",
+                request.getRequestURI(),
+                exception.getMessage()
+        );
+
+        var response = ErrorResponseDto.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                .message("You do not have permission to perform this operation")
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(response);
+    }
+
+    @ExceptionHandler(AccountTemporarilyLockedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAccountTemporarilyLocked(
+            AccountTemporarilyLockedException exception,
+            HttpServletRequest request
+    ) {
+        log.warn(
+                "Account is temporarily locked until {}",
+                exception.getLockedUntil()
+        );
+
+        return buildErrorResponse(
+                "Account is temporarily locked until " + exception.getLockedUntil(),
+                HttpStatus.LOCKED,
+                request
+        );
     }
 }

@@ -3,7 +3,6 @@ package com.example.core.controller;
 import com.example.core.converter.TraineeToTraineeResponseDtoConverter;
 import com.example.core.converter.TrainerToTrainerResponseDtoConverter;
 import com.example.core.converter.TrainingToTrainingResponseDtoConverter;
-import com.example.core.converter.UserToCreatedProfileResponseDtoConverter;
 import com.example.core.dto.auth.ChangeStatusRequestDto;
 import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.error.ErrorResponseDto;
@@ -20,6 +19,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,6 @@ public class TraineeController {
 
     private final TraineeService traineeService;
 
-    private final UserToCreatedProfileResponseDtoConverter userToCreatedProfileResponseDtoConverter;
     private final TraineeToTraineeResponseDtoConverter traineeResponseConverter;
     private final TrainerToTrainerResponseDtoConverter trainerResponseConverter;
     private final TrainingToTrainingResponseDtoConverter trainingResponseConverter;
@@ -63,16 +62,15 @@ public class TraineeController {
     public ResponseEntity<CreatedProfileResponseDto> create(
             @Valid @RequestBody CreateTraineeRequestDto request) {
 
-        var user = traineeService.create(request);
-
-        var response = userToCreatedProfileResponseDtoConverter.convert(user);
+        var response = traineeService.create(request);
 
         return ResponseEntity.ok(response);
     }
 
     @Operation(
             summary = "Get trainee profile",
-            description = "Returns trainee profile by username"
+            description = "Returns trainee profile by username",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee profile found"),
@@ -95,7 +93,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Get all trainee profiles",
-            description = "Returns all trainee profiles"
+            description = "Returns all trainee profiles",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponse(responseCode = "200", description = "Trainee profiles retrieved successfully")
     @GetMapping
@@ -111,7 +110,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Update trainee profile",
-            description = "Updates trainee profile by username"
+            description = "Updates trainee profile by username",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee profile updated successfully"),
@@ -140,7 +140,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Change trainee status",
-            description = "Activates or deactivates trainee profile"
+            description = "Activates or deactivates trainee profile",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee status changed successfully"),
@@ -175,7 +176,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Delete trainee profile",
-            description = "Deletes trainee profile by username"
+            description = "Deletes trainee profile by username",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee profile deleted successfully"),
@@ -195,7 +197,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Get trainee trainings",
-            description = "Returns trainee trainings filtered by optional search criteria"
+            description = "Returns trainee trainings filtered by optional search criteria",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee trainings retrieved successfully"),
@@ -241,7 +244,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Get unassigned trainers",
-            description = "Returns trainers that are not assigned to the specified trainee"
+            description = "Returns trainers that are not assigned to the specified trainee",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Unassigned trainers retrieved successfully"),
@@ -266,7 +270,8 @@ public class TraineeController {
 
     @Operation(
             summary = "Update trainee trainers",
-            description = "Replaces the list of trainers assigned to the specified trainee"
+            description = "Replaces the list of trainers assigned to the specified trainee",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Trainee trainers updated successfully"),

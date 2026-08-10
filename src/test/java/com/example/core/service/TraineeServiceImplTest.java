@@ -4,10 +4,7 @@ import com.example.core.converter.CreateTraineeRequestToTraineeConverter;
 import com.example.core.dto.trainee.CreateTraineeRequestDto;
 import com.example.core.dto.trainee.UpdateTraineeRequestDto;
 import com.example.core.metrics.ProfileCreationMetrics;
-import com.example.core.model.Trainee;
-import com.example.core.model.Trainer;
-import com.example.core.model.Training;
-import com.example.core.model.User;
+import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
 import com.example.core.repository.TrainerRepository;
 import com.example.core.repository.TrainingRepository;
@@ -21,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -53,6 +51,9 @@ class TraineeServiceImplTest {
     @Mock
     private ProfileCreationMetrics profileCreationMetrics;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private TraineeServiceImpl traineeService;
 
@@ -63,14 +64,20 @@ class TraineeServiceImplTest {
         Trainee trainee = createTrainee(null);
 
         when(usernameGenerator.generate("John", "Smith")).thenReturn("John.Smith");
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(createTraineeConverter.convert(request)).thenReturn(trainee);
         when(traineeRepository.save(trainee)).thenReturn(trainee);
 
-        User result = traineeService.create(request);
+        var result = traineeService.create(request);
 
         assertEquals("John.Smith", result.getUsername(), "Username should match generated username");
         assertEquals("John.Smith", trainee.getUser().getUsername(), "User should be set to trainee");
+        assertNotNull(trainee.getUser().getPassword(), "Generated password should be returned");
+        assertEquals("encodedPassword", trainee.getUser().getPassword(), "Encoded password should be stored in entity");
+        assertEquals(Role.TRAINEE, trainee.getUser().getRole());
+        assertTrue(trainee.getUser().isActive());
 
+        verify(passwordEncoder).encode(anyString());
         verify(traineeRepository).save(trainee);
         verify(profileCreationMetrics).recordTraineeCreated();
     }

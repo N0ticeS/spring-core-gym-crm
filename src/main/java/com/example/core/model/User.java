@@ -3,6 +3,8 @@ package com.example.core.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -29,6 +31,16 @@ public class User {
     @Column(name = "password", nullable = false)
     private String password;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role;
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
 }

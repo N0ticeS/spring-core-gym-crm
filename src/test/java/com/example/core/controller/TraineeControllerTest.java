@@ -1,9 +1,6 @@
 package com.example.core.controller;
 
-import com.example.core.converter.TraineeToTraineeResponseDtoConverter;
-import com.example.core.converter.TrainerToTrainerResponseDtoConverter;
-import com.example.core.converter.TrainingToTrainingResponseDtoConverter;
-import com.example.core.converter.UserToCreatedProfileResponseDtoConverter;
+import com.example.core.converter.*;
 import com.example.core.dto.auth.CreatedProfileResponseDto;
 import com.example.core.dto.trainee.TraineeResponseDto;
 import com.example.core.dto.trainer.TrainerResponseDto;
@@ -12,11 +9,15 @@ import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
 import com.example.core.model.Training;
 import com.example.core.model.User;
+import com.example.core.security.jwt.JwtAuthenticationFilter;
 import com.example.core.service.TraineeService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,7 +32,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(TraineeController.class)
+@WebMvcTest(controllers = TraineeController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {
+                        JwtAuthenticationFilter.class,
+                        JwtToLoginResponseDtoConverter.class
+                }
+        ))
+@AutoConfigureMockMvc(addFilters = false)
 class TraineeControllerTest {
 
     @Autowired
@@ -68,7 +77,7 @@ class TraineeControllerTest {
                 .build();
 
         when(traineeService.create(any()))
-                .thenReturn(user);
+                .thenReturn(response);
 
         when(createdProfileResponseConverter.convert(user))
                 .thenReturn(response);
@@ -88,7 +97,6 @@ class TraineeControllerTest {
                 .andExpect(jsonPath("$.password").value("password123"));
 
         verify(traineeService).create(any());
-        verify(createdProfileResponseConverter).convert(user);
     }
 
     @Test

@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,8 @@ public class TrainingController {
 
     @Operation(
             summary = "Create training",
-            description = "Creates a new training"
+            description = "Creates a new training",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Training created successfully"),
@@ -62,7 +64,8 @@ public class TrainingController {
 
     @Operation(
             summary = "Get all trainings",
-            description = "Returns trainings filtered by optional search criteria"
+            description = "Returns trainings filtered by optional search criteria",
+            security = @SecurityRequirement(name = "bearerAuth")
     )
     @ApiResponse(responseCode = "200", description = "Trainings retrieved successfully")
     @GetMapping
