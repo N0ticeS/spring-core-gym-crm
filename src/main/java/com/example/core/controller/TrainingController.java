@@ -104,4 +104,32 @@ public class TrainingController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(
+            summary = "Delete training",
+            description = "Deletes a future training by id and updates trainer workload"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Training deleted successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Training not found"
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Past training cannot be deleted"
+            ),
+            @ApiResponse(
+                    responseCode = "403",
+                    description = "Access denied"
+            )
+    })
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTraining(@PathVariable Long id) {
+        trainingService.deleteTraining(id);
+
+        return ResponseEntity.ok().build();
+    }
 }

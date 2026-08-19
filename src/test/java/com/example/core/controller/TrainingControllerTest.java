@@ -21,8 +21,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -153,5 +152,15 @@ class TrainingControllerTest {
 
         verify(trainingService).findAll(any());
         verify(trainingResponseConverter).convert(training);
+    }
+
+    @Test
+    void shouldDeleteTrainingSuccessfully() throws Exception {
+        Long trainingId = 1L;
+
+        mockMvc.perform(delete("/api/trainings/{id}", trainingId))
+                .andExpect(status().isOk());
+
+        verify(trainingService).deleteTraining(trainingId);
     }
 }

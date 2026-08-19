@@ -1,7 +1,10 @@
 package com.example.core.service;
 
+import com.example.core.client.TrainerWorkloadClient;
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.dto.workload.ActionType;
+import com.example.core.dto.workload.TrainerWorkloadRequestDto;
 import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
@@ -12,6 +15,7 @@ import com.example.core.specification.TrainingSearchCriteria;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -44,6 +48,9 @@ class TrainingServiceImplTest {
     @Mock
     private TrainingCreationMetrics trainingCreationMetrics;
 
+    @Mock
+    private TrainerWorkloadClient trainerWorkloadClient;
+
     @InjectMocks
     private TrainingServiceImpl trainingService;
 
@@ -54,23 +61,95 @@ class TrainingServiceImplTest {
         Trainee trainee = createTrainee("John.Smith");
         Trainer trainer = createTrainer("Mike.Brown", "Fitness");
         Training training = createTraining();
+
         Training savedTraining = createTraining();
         savedTraining.setId(1L);
         savedTraining.setTrainee(trainee);
         savedTraining.setTrainer(trainer);
         savedTraining.setTrainingType(trainer.getSpecialization());
 
-        when(traineeRepository.findByUserUsername("John.Smith")).thenReturn(Optional.of(trainee));
-        when(trainerRepository.findByUserUsername("Mike.Brown")).thenReturn(Optional.of(trainer));
-        when(createTrainingConverter.convert(request)).thenReturn(training);
-        when(trainingRepository.save(training)).thenReturn(savedTraining);
+        when(traineeRepository.findByUserUsername("John.Smith"))
+                .thenReturn(Optional.of(trainee));
+
+        when(trainerRepository.findByUserUsername("Mike.Brown"))
+                .thenReturn(Optional.of(trainer));
+
+        when(createTrainingConverter.convert(request))
+                .thenReturn(training);
+
+        when(trainingRepository.save(training))
+                .thenReturn(savedTraining);
 
         Training result = trainingService.createTraining(request);
 
-        assertEquals("Morning Fitness", result.getTrainingName(), "Training name should match");
-        assertEquals(trainee, training.getTrainee(), "Trainee should be assigned to training");
-        assertEquals(trainer, training.getTrainer(), "Trainer should be assigned to training");
-        assertEquals(trainer.getSpecialization(), training.getTrainingType(), "Training type should match trainer specialization");
+        assertEquals(
+                "Morning Fitness",
+                result.getTrainingName(),
+                "Training name should match"
+        );
+
+        assertEquals(
+                trainee,
+                training.getTrainee(),
+                "Trainee should be assigned to training"
+        );
+
+        assertEquals(
+                trainer,
+                training.getTrainer(),
+                "Trainer should be assigned to training"
+        );
+
+        assertEquals(
+                trainer.getSpecialization(),
+                training.getTrainingType(),
+                "Training type should match trainer specialization"
+        );
+
+        ArgumentCaptor<TrainerWorkloadRequestDto> workloadCaptor =
+                ArgumentCaptor.forClass(TrainerWorkloadRequestDto.class);
+
+        verify(trainerWorkloadClient)
+                .updateWorkload(workloadCaptor.capture());
+
+        TrainerWorkloadRequestDto workloadRequest =
+                workloadCaptor.getValue();
+
+        assertEquals(
+                "Mike.Brown",
+                workloadRequest.getTrainerUsername(),
+                "Trainer username should match"
+        );
+
+        assertEquals(
+                "Mike",
+                workloadRequest.getTrainerFirstName(),
+                "Trainer first name should match"
+        );
+
+        assertEquals(
+                "Brown",
+                workloadRequest.getTrainerLastName(),
+                "Trainer last name should match"
+        );
+
+        assertEquals(
+                LocalDate.of(2026, 7, 10),
+                workloadRequest.getTrainingDate(),
+                "Training date should match"
+        );
+
+        assertEquals(
+                60,
+                workloadRequest.getTrainingDuration(),
+                "Training duration should match"
+        );
+
+        assertEquals(
+                ActionType.ADD,
+                workloadRequest.getActionType(),
+                "Action type should be ADD"
+        );
 
         verify(trainingRepository).save(training);
         verify(createTrainingConverter).convert(request);
@@ -93,6 +172,7 @@ class TrainingServiceImplTest {
         verify(trainerRepository, never()).findByUserUsername(anyString());
         verify(trainingRepository, never()).save(any(Training.class));
         verifyNoInteractions(createTrainingConverter);
+        verifyNoInteractions(trainerWorkloadClient);
     }
 
     @Test
@@ -113,6 +193,7 @@ class TrainingServiceImplTest {
 
         verify(trainingRepository, never()).save(any(Training.class));
         verifyNoInteractions(createTrainingConverter);
+        verifyNoInteractions(trainerWorkloadClient);
     }
 
     @Test
@@ -133,6 +214,120 @@ class TrainingServiceImplTest {
         assertEquals("Evening Yoga", result.get(1).getTrainingName(), "Second training name should match");
 
         verify(trainingRepository).findAll(any(Specification.class));
+    }
+
+    @Test
+    void shouldDeleteTrainingSuccessfully() {
+        Long trainingId = 1L;
+
+        Trainer trainer = createTrainer("Mike.Brown", "Fitness");
+
+        Training training = Training.builder()
+                .id(trainingId)
+                .trainingName("Future Fitness")
+                .trainingDate(LocalDate.now().plusDays(5))
+                .trainingDuration(90)
+                .trainer(trainer)
+                .trainingType(trainer.getSpecialization())
+                .build();
+
+        when(trainingRepository.findById(trainingId))
+                .thenReturn(Optional.of(training));
+
+        trainingService.deleteTraining(trainingId);
+
+        ArgumentCaptor<TrainerWorkloadRequestDto> workloadCaptor =
+                ArgumentCaptor.forClass(TrainerWorkloadRequestDto.class);
+
+        verify(trainerWorkloadClient)
+                .updateWorkload(workloadCaptor.capture());
+
+        TrainerWorkloadRequestDto workloadRequest =
+                workloadCaptor.getValue();
+
+        assertEquals(
+                "Mike.Brown",
+                workloadRequest.getTrainerUsername(),
+                "Trainer username should match"
+        );
+
+        assertEquals(
+                90,
+                workloadRequest.getTrainingDuration(),
+                "Training duration should match"
+        );
+
+        assertEquals(
+                training.getTrainingDate(),
+                workloadRequest.getTrainingDate(),
+                "Training date should match"
+        );
+
+        assertEquals(
+                ActionType.DELETE,
+                workloadRequest.getActionType(),
+                "Action type should be DELETE"
+        );
+
+        verify(trainingRepository)
+                .delete(training);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenTrainingNotFoundOnDelete() {
+        Long trainingId = 999L;
+
+        when(trainingRepository.findById(trainingId))
+                .thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> trainingService.deleteTraining(trainingId),
+                "EntityNotFoundException should be thrown when training is not found"
+        );
+
+        assertEquals(
+                "Training with id 999 not found",
+                exception.getMessage(),
+                "Exception message should match"
+        );
+
+        verify(trainingRepository, never())
+                .delete(any(Training.class));
+
+        verifyNoInteractions(trainerWorkloadClient);
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDeletingPastTraining() {
+        Long trainingId = 1L;
+
+        Training training = Training.builder()
+                .id(trainingId)
+                .trainingName("Past Fitness")
+                .trainingDate(LocalDate.now().minusDays(1))
+                .trainingDuration(60)
+                .build();
+
+        when(trainingRepository.findById(trainingId))
+                .thenReturn(Optional.of(training));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> trainingService.deleteTraining(trainingId),
+                "IllegalStateException should be thrown when deleting past training"
+        );
+
+        assertEquals(
+                "Past training cannot be deleted, id: 1",
+                exception.getMessage(),
+                "Exception message should match"
+        );
+
+        verify(trainingRepository, never())
+                .delete(any(Training.class));
+
+        verifyNoInteractions(trainerWorkloadClient);
     }
 
     private CreateTrainingRequestDto createTrainingRequest() {
