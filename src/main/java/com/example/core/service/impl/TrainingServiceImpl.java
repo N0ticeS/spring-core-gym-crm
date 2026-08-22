@@ -1,7 +1,10 @@
 package com.example.core.service.impl;
 
+import com.example.core.client.TrainerWorkloadClient;
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
+import com.example.core.dto.workload.ActionType;
+import com.example.core.dto.workload.TrainerWorkloadRequestDto;
 import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
@@ -19,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,6 +36,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TrainerRepository trainerRepository;
     private final CreateTrainingRequestToTrainingConverter createTrainingConverter;
     private final TrainingCreationMetrics trainingCreationMetrics;
+    private final TrainerWorkloadClient trainerWorkloadClient;
 
     @Override
     @Transactional
@@ -53,6 +58,9 @@ public class TrainingServiceImpl implements TrainingService {
         training.setTrainingType(trainer.getSpecialization());
 
         var savedTraining = trainingRepository.save(training);
+
+        var workloadRequest = buildTrainerWorkloadRequest(savedTraining, ActionType.ADD);
+        trainerWorkloadClient.updateWorkload(workloadRequest);
 
         trainingCreationMetrics.increment();
 
@@ -78,6 +86,28 @@ public class TrainingServiceImpl implements TrainingService {
         return trainings;
     }
 
+    @Override
+    @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
+    public void deleteTraining(Long id) {
+        log.debug("Deleting training with id {}", id);
+
+        var training = trainingRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Training with id " + id + " not found"));
+
+        if (training.getTrainingDate().isBefore(LocalDate.now())) {
+            throw new IllegalStateException("Past training cannot be deleted, id: " + id);
+        }
+
+        var workloadRequest = buildTrainerWorkloadRequest(training, ActionType.DELETE);
+        trainerWorkloadClient.updateWorkload(workloadRequest);
+
+        trainingRepository.delete(training);
+
+        log.info("Training deleted successfully, id {}, trainer username {}",
+                training.getId(), training.getTrainer().getUser().getUsername());
+    }
+
     private Trainee findTraineeByUsername(String username) {
         return traineeRepository.findByUserUsername(username)
                 .orElseThrow(() -> {
@@ -92,5 +122,21 @@ public class TrainingServiceImpl implements TrainingService {
                     log.warn("Trainer profile not found, username {}", username);
                     return new EntityNotFoundException("Trainer profile not found");
                 });
+    }
+
+    private TrainerWorkloadRequestDto buildTrainerWorkloadRequest(Training training,
+                                                                  ActionType actionType) {
+        var trainer = training.getTrainer();
+        var user = trainer.getUser();
+
+        return TrainerWorkloadRequestDto.builder()
+                .trainerUsername(user.getUsername())
+                .trainerLastName(user.getLastName())
+                .trainerFirstName(user.getFirstName())
+                .active(user.isActive())
+                .trainingDate(training.getTrainingDate())
+                .trainingDuration(training.getTrainingDuration())
+                .actionType(actionType)
+                .build();
     }
 }

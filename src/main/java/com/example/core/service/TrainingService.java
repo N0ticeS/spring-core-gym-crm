@@ -11,4 +11,6 @@ public interface TrainingService {
     Training createTraining(CreateTrainingRequestDto request);
 
     List<Training> findAll(TrainingSearchCriteria criteria);
+
+    void deleteTraining(Long id);
 }
