@@ -1,6 +1,6 @@
 package com.example.trainer_workload_service.security.jwt;
 
-import com.example.trainer_workload_service.config.JwtProperties;
+import com.example.trainer_workload_service.config.properties.JwtProperties;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;

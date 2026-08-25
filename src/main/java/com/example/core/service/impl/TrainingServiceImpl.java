@@ -1,10 +1,10 @@
 package com.example.core.service.impl;
 
-import com.example.core.client.TrainerWorkloadClient;
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
 import com.example.core.dto.workload.ActionType;
 import com.example.core.dto.workload.TrainerWorkloadRequestDto;
+import com.example.core.messaging.producer.TrainerWorkloadProducer;
 import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.Trainee;
 import com.example.core.model.Trainer;
@@ -36,7 +36,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TrainerRepository trainerRepository;
     private final CreateTrainingRequestToTrainingConverter createTrainingConverter;
     private final TrainingCreationMetrics trainingCreationMetrics;
-    private final TrainerWorkloadClient trainerWorkloadClient;
+    private final TrainerWorkloadProducer trainerWorkloadProducer;
 
     @Override
     @Transactional
@@ -60,7 +60,7 @@ public class TrainingServiceImpl implements TrainingService {
         var savedTraining = trainingRepository.save(training);
 
         var workloadRequest = buildTrainerWorkloadRequest(savedTraining, ActionType.ADD);
-        trainerWorkloadClient.updateWorkload(workloadRequest);
+        trainerWorkloadProducer.send(workloadRequest);
 
         trainingCreationMetrics.increment();
 
@@ -100,7 +100,7 @@ public class TrainingServiceImpl implements TrainingService {
         }
 
         var workloadRequest = buildTrainerWorkloadRequest(training, ActionType.DELETE);
-        trainerWorkloadClient.updateWorkload(workloadRequest);
+        trainerWorkloadProducer.send(workloadRequest);
 
         trainingRepository.delete(training);
 
