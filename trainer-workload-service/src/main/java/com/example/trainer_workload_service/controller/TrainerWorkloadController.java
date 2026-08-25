@@ -1,7 +1,6 @@
 package com.example.trainer_workload_service.controller;
 
 import com.example.trainer_workload_service.converter.MonthlyWorkloadToResponseDtoConverter;
-import com.example.trainer_workload_service.dto.TrainerWorkloadRequestDto;
 import com.example.trainer_workload_service.dto.TrainerWorkloadResponseDto;
 import com.example.trainer_workload_service.model.MonthlyWorkload;
 import com.example.trainer_workload_service.service.TrainerWorkloadService;
@@ -9,7 +8,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,38 +19,6 @@ public class TrainerWorkloadController {
 
     private final TrainerWorkloadService trainerWorkloadService;
     private final MonthlyWorkloadToResponseDtoConverter monthlyWorkloadToResponseDtoConverter;
-
-    @Operation(
-            summary = "Update trainer workload",
-            description = "Updates trainer monthly workload when a training is added or deleted",
-            security = @SecurityRequirement(name = "bearerAuth")
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Trainer workload updated successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid request data"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Internal server error"
-            )
-    })
-    @PostMapping
-    public ResponseEntity<Void> updateWorkload(
-            @Valid @RequestBody TrainerWorkloadRequestDto request
-    ) {
-        trainerWorkloadService.updateWorkload(request);
-
-        return ResponseEntity.ok().build();
-    }
 
     @Operation(
             summary = "Get trainer workload",

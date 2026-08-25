@@ -13,14 +13,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,51 +40,6 @@ class TrainerWorkloadControllerTest {
 
     @MockitoBean
     private JwtService jwtService;
-
-    @Test
-    void updateWorkloadShouldReturn200() throws Exception {
-        String requestBody = """
-                {
-                  "trainerUsername": "Mike.Johnson",
-                  "trainerFirstName": "Mike",
-                  "trainerLastName": "Johnson",
-                  "active": true,
-                  "trainingDate": "2026-08-20",
-                  "trainingDuration": 90,
-                  "actionType": "ADD"
-                }
-                """;
-
-        mockMvc.perform(post("/api/v1/workloads")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isOk());
-
-        verify(trainerWorkloadService)
-                .updateWorkload(any());
-    }
-
-    @Test
-    void updateWorkloadShouldReturn400WhenRequestIsInvalid() throws Exception {
-        String requestBody = """
-                {
-                  "trainerUsername": "",
-                  "trainerFirstName": "Mike",
-                  "trainerLastName": "Johnson",
-                  "active": true,
-                  "trainingDate": "2026-08-20",
-                  "trainingDuration": 0,
-                  "actionType": "ADD"
-                }
-                """;
-
-        mockMvc.perform(post("/api/v1/workloads")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(trainerWorkloadService);
-    }
 
     @Test
     void getWorkloadShouldReturn200AndResponseDto() throws Exception {

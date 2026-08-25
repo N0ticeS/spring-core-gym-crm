@@ -1,4 +1,4 @@
-package com.example.trainer_workload_service.config;
+package com.example.trainer_workload_service.config.properties;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

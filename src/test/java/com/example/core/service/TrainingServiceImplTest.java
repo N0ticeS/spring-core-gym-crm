@@ -1,10 +1,10 @@
 package com.example.core.service;
 
-import com.example.core.client.TrainerWorkloadClient;
 import com.example.core.converter.CreateTrainingRequestToTrainingConverter;
 import com.example.core.dto.training.CreateTrainingRequestDto;
 import com.example.core.dto.workload.ActionType;
 import com.example.core.dto.workload.TrainerWorkloadRequestDto;
+import com.example.core.messaging.producer.TrainerWorkloadProducer;
 import com.example.core.metrics.TrainingCreationMetrics;
 import com.example.core.model.*;
 import com.example.core.repository.TraineeRepository;
@@ -49,7 +49,7 @@ class TrainingServiceImplTest {
     private TrainingCreationMetrics trainingCreationMetrics;
 
     @Mock
-    private TrainerWorkloadClient trainerWorkloadClient;
+    private TrainerWorkloadProducer trainerWorkloadProducer;
 
     @InjectMocks
     private TrainingServiceImpl trainingService;
@@ -109,8 +109,8 @@ class TrainingServiceImplTest {
         ArgumentCaptor<TrainerWorkloadRequestDto> workloadCaptor =
                 ArgumentCaptor.forClass(TrainerWorkloadRequestDto.class);
 
-        verify(trainerWorkloadClient)
-                .updateWorkload(workloadCaptor.capture());
+        verify(trainerWorkloadProducer)
+                .send(workloadCaptor.capture());
 
         TrainerWorkloadRequestDto workloadRequest =
                 workloadCaptor.getValue();
@@ -172,7 +172,7 @@ class TrainingServiceImplTest {
         verify(trainerRepository, never()).findByUserUsername(anyString());
         verify(trainingRepository, never()).save(any(Training.class));
         verifyNoInteractions(createTrainingConverter);
-        verifyNoInteractions(trainerWorkloadClient);
+        verifyNoInteractions(trainerWorkloadProducer);
     }
 
     @Test
@@ -193,7 +193,7 @@ class TrainingServiceImplTest {
 
         verify(trainingRepository, never()).save(any(Training.class));
         verifyNoInteractions(createTrainingConverter);
-        verifyNoInteractions(trainerWorkloadClient);
+        verifyNoInteractions(trainerWorkloadProducer);
     }
 
     @Test
@@ -239,8 +239,8 @@ class TrainingServiceImplTest {
         ArgumentCaptor<TrainerWorkloadRequestDto> workloadCaptor =
                 ArgumentCaptor.forClass(TrainerWorkloadRequestDto.class);
 
-        verify(trainerWorkloadClient)
-                .updateWorkload(workloadCaptor.capture());
+        verify(trainerWorkloadProducer)
+                .send(workloadCaptor.capture());
 
         TrainerWorkloadRequestDto workloadRequest =
                 workloadCaptor.getValue();
@@ -295,7 +295,7 @@ class TrainingServiceImplTest {
         verify(trainingRepository, never())
                 .delete(any(Training.class));
 
-        verifyNoInteractions(trainerWorkloadClient);
+        verifyNoInteractions(trainerWorkloadProducer);
     }
 
     @Test
@@ -327,7 +327,7 @@ class TrainingServiceImplTest {
         verify(trainingRepository, never())
                 .delete(any(Training.class));
 
-        verifyNoInteractions(trainerWorkloadClient);
+        verifyNoInteractions(trainerWorkloadProducer);
     }
 
     private CreateTrainingRequestDto createTrainingRequest() {
