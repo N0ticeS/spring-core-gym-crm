@@ -1,4 +1,4 @@
-package com.example.trainer_workload_service.config;
+package com.example.trainer_workload_service.security;
 
 import com.example.trainer_workload_service.security.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +31,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/actuator/health",
-                                "/h2-console/**"
+                                "/actuator/health"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

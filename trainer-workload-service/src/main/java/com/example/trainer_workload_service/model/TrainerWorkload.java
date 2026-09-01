@@ -1,13 +1,19 @@
 package com.example.trainer_workload_service.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "trainer_workload")
+@Document(collection = "trainer_workloads")
+@CompoundIndex(
+        name = "first_name_last_name_index",
+        def = "{'firstName': 1, 'lastName': 1}"
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,25 +22,17 @@ import java.util.List;
 public class TrainerWorkload {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(name = "username", nullable = false, unique = true)
+    @Indexed(unique = true)
     private String username;
 
-    @Column(name = "first_name", nullable = false)
     private String firstName;
 
-    @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(name = "active", nullable = false)
     private Boolean active;
 
-    @OneToMany(
-            mappedBy = "trainer",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<MonthlyWorkload> monthlyWorkloads = new ArrayList<>();
+    @Builder.Default
+    private List<YearSummary> years = new ArrayList<>();
 }
