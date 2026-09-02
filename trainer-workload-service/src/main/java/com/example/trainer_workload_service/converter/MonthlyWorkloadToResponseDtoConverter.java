@@ -1,26 +1,27 @@
 package com.example.trainer_workload_service.converter;
 
 import com.example.trainer_workload_service.dto.TrainerWorkloadResponseDto;
-import com.example.trainer_workload_service.model.MonthlyWorkload;
-import org.springframework.core.convert.converter.Converter;
+import com.example.trainer_workload_service.model.MonthlySummary;
+import com.example.trainer_workload_service.model.TrainerWorkload;
+import com.example.trainer_workload_service.model.YearSummary;
 import org.springframework.stereotype.Component;
 
 @Component
-public class MonthlyWorkloadToResponseDtoConverter
-        implements Converter<MonthlyWorkload, TrainerWorkloadResponseDto> {
+public class MonthlyWorkloadToResponseDtoConverter {
 
-    @Override
-    public TrainerWorkloadResponseDto convert(MonthlyWorkload source) {
+    public TrainerWorkloadResponseDto convert(
+            TrainerWorkload trainer,
+            YearSummary yearSummary,
+            MonthlySummary monthlySummary
+    ) {
         return TrainerWorkloadResponseDto.builder()
-                .trainerUsername(source.getTrainer().getUsername())
-                .trainerFirstName(source.getTrainer().getFirstName())
-                .trainerLastName(source.getTrainer().getLastName())
-                .active(source.getTrainer().getActive())
-                .year(source.getYear())
-                .month(source.getMonth())
-                .trainingSummaryDuration(
-                        source.getTrainingSummaryDuration()
-                )
+                .trainerUsername(trainer.getUsername())
+                .trainerFirstName(trainer.getFirstName())
+                .trainerLastName(trainer.getLastName())
+                .active(trainer.getActive())
+                .year(yearSummary.getYear())
+                .month(monthlySummary.getMonth())
+                .trainingSummaryDuration(monthlySummary.getTrainingSummaryDuration())
                 .build();
     }
 }

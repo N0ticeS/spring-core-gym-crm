@@ -1,8 +1,9 @@
 package com.example.trainer_workload_service.converter;
 
 import com.example.trainer_workload_service.dto.TrainerWorkloadResponseDto;
-import com.example.trainer_workload_service.model.MonthlyWorkload;
+import com.example.trainer_workload_service.model.MonthlySummary;
 import com.example.trainer_workload_service.model.TrainerWorkload;
+import com.example.trainer_workload_service.model.YearSummary;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,23 +16,23 @@ class MonthlyWorkloadToResponseDtoConverterTest {
     @Test
     void convertShouldConvertMonthlyWorkloadToResponseDto() {
         var trainer = TrainerWorkload.builder()
-                .id(1L)
                 .username("Mike.Johnson")
                 .firstName("Mike")
                 .lastName("Johnson")
                 .active(true)
                 .build();
 
-        var monthlyWorkload = MonthlyWorkload.builder()
-                .id(1L)
-                .trainer(trainer)
+        var yearSummary = YearSummary.builder()
                 .year(2026)
-                .month(8)
-                .trainingSummaryDuration(90)
+                .build();
+
+        var monthlySummary = MonthlySummary.builder()
+                .month(10)
+                .trainingSummaryDuration(20)
                 .build();
 
         TrainerWorkloadResponseDto result =
-                converter.convert(monthlyWorkload);
+                converter.convert(trainer, yearSummary, monthlySummary);
 
         assertNotNull(result);
 
@@ -54,11 +55,11 @@ class MonthlyWorkloadToResponseDtoConverterTest {
                         result.getYear()
                 ),
                 () -> assertEquals(
-                        8,
+                        10,
                         result.getMonth()
                 ),
                 () -> assertEquals(
-                        90,
+                        20,
                         result.getTrainingSummaryDuration()
                 )
         );

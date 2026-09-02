@@ -1,8 +1,6 @@
 package com.example.trainer_workload_service.controller;
 
-import com.example.trainer_workload_service.converter.MonthlyWorkloadToResponseDtoConverter;
 import com.example.trainer_workload_service.dto.TrainerWorkloadResponseDto;
-import com.example.trainer_workload_service.model.MonthlyWorkload;
 import com.example.trainer_workload_service.service.TrainerWorkloadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 public class TrainerWorkloadController {
 
     private final TrainerWorkloadService trainerWorkloadService;
-    private final MonthlyWorkloadToResponseDtoConverter monthlyWorkloadToResponseDtoConverter;
 
     @Operation(
             summary = "Get trainer workload",
@@ -53,11 +50,6 @@ public class TrainerWorkloadController {
             @RequestParam Integer year,
             @RequestParam Integer month
     ) {
-        MonthlyWorkload monthlyWorkload = trainerWorkloadService.getWorkload(
-                username, year, month
-        );
-
-        return ResponseEntity.ok(monthlyWorkloadToResponseDtoConverter.convert(monthlyWorkload));
-
+        return ResponseEntity.ok(trainerWorkloadService.getWorkload(username, year, month));
     }
 }

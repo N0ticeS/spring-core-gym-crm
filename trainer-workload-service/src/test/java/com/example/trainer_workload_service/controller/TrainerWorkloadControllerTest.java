@@ -1,9 +1,6 @@
 package com.example.trainer_workload_service.controller;
 
-import com.example.trainer_workload_service.converter.MonthlyWorkloadToResponseDtoConverter;
 import com.example.trainer_workload_service.dto.TrainerWorkloadResponseDto;
-import com.example.trainer_workload_service.model.MonthlyWorkload;
-import com.example.trainer_workload_service.model.TrainerWorkload;
 import com.example.trainer_workload_service.security.jwt.JwtAuthenticationFilter;
 import com.example.trainer_workload_service.security.jwt.JwtService;
 import com.example.trainer_workload_service.service.TrainerWorkloadService;
@@ -36,29 +33,10 @@ class TrainerWorkloadControllerTest {
     private TrainerWorkloadService trainerWorkloadService;
 
     @MockitoBean
-    private MonthlyWorkloadToResponseDtoConverter monthlyWorkloadToResponseDtoConverter;
-
-    @MockitoBean
     private JwtService jwtService;
 
     @Test
     void getWorkloadShouldReturn200AndResponseDto() throws Exception {
-        var trainer = TrainerWorkload.builder()
-                .id(1L)
-                .username("Mike.Johnson")
-                .firstName("Mike")
-                .lastName("Johnson")
-                .active(true)
-                .build();
-
-        var monthlyWorkload = MonthlyWorkload.builder()
-                .id(1L)
-                .trainer(trainer)
-                .year(2026)
-                .month(8)
-                .trainingSummaryDuration(90)
-                .build();
-
         var responseDto = TrainerWorkloadResponseDto.builder()
                 .trainerUsername("Mike.Johnson")
                 .trainerFirstName("Mike")
@@ -73,10 +51,7 @@ class TrainerWorkloadControllerTest {
                 "Mike.Johnson",
                 2026,
                 8
-        )).thenReturn(monthlyWorkload);
-
-        when(monthlyWorkloadToResponseDtoConverter.convert(monthlyWorkload))
-                .thenReturn(responseDto);
+        )).thenReturn(responseDto);
 
         mockMvc.perform(get("/api/v1/workloads/Mike.Johnson")
                         .param("year", "2026")
@@ -99,9 +74,6 @@ class TrainerWorkloadControllerTest {
 
         verify(trainerWorkloadService)
                 .getWorkload("Mike.Johnson", 2026, 8);
-
-        verify(monthlyWorkloadToResponseDtoConverter)
-                .convert(monthlyWorkload);
     }
 
     @Test
