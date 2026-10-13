@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gym-postgres
+    environment:
+      POSTGRES_DB: gym_crm_local
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    networks:
+      - gym-network
+
+  #  mongodb:
+  #    image: mongo:8.0
+  #    container_name: gym-mongodb
+  #    environment:
+  #      MONGO_INITDB_DATABASE: trainer_workload_db
+  #    ports:
+  #      - "27017:27017"
+  #    networks:
+  #      - gym-network
+
+  activemq:
+    image: rmohr/activemq:latest
+    container_name: gym-activemq-container
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+    environment:
+      ACTIVEMQ_ADMIN_LOGIN: admin
+      ACTIVEMQ_ADMIN_PASSWORD: admin
+    networks:
+      - gym-network
+
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gym-core
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gym_crm_local
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+
+      EUREKA_CLIENT_ENABLED: "false"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SPRING_ACTIVEMQ_USER: admin
+      SPRING_ACTIVEMQ_PASSWORD: admin
+
+    depends_on:
+      - postgres
+      - activemq
+    networks:
+      - gym-network
+
+#  workload:
+#    build:
+#      context: ./trainer-workload-service
+#      dockerfile: Dockerfile
+#    container_name: gym-workload
+#    ports:
+#      - "8081:8081"
+#    environment:
+#      SPRING_PROFILES_ACTIVE: local
+#
+#      SPRING_MONGODB_URI: mongodb://mongodb:27017/trainer_workload_db
+#
+#      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+#      SPRING_ACTIVEMQ_USER: admin
+#      SPRING_ACTIVEMQ_PASSWORD: admin
+#
+#      EUREKA_CLIENT_ENABLED: "false"
+#      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+#      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+#
+#    depends_on:
+#      - mongodb
+#      - activemq
+#    networks:
+#      - gym-network
+
+networks:
+  gym-network:
+    external: true

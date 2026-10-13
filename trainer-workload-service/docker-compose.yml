@@ -1,0 +1,39 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: gym-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: trainer_workload_db
+    ports:
+      - "27017:27017"
+    networks:
+      - gym-network
+
+  workload:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gym-workload
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+
+      SPRING_MONGODB_URI: mongodb://mongodb:27017/trainer_workload_db
+
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      SPRING_ACTIVEMQ_USER: admin
+      SPRING_ACTIVEMQ_PASSWORD: admin
+
+      EUREKA_CLIENT_ENABLED: "false"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+
+    depends_on:
+      - mongodb
+    networks:
+      - gym-network
+
+networks:
+  gym-network:
+    external: true
